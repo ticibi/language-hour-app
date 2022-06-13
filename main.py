@@ -12,8 +12,7 @@ service = build(serviceName="sheets", version="v4", credentials=credentials)
 
 st.set_page_config(page_title="Language Hour", page_icon="🌐", layout="centered")
 st.title("Language Hour Entry")
-form = st.form(key="annotation")
-
+form = st.form(key="annotation", clear_on_submit=True)
 
 def add_row(connector, sheet_name, row) -> None:
     connector.values().append(spreadsheetId=SPREADSHEET_ID,
@@ -48,6 +47,8 @@ def read_form(form):
         submitted = st.form_submit_button(label="Submit")
 
     if submitted:
+        name = name.title()
+
         if len(description) < 1:
             st.error("You need to include what you studied...")
         if minutes <= 0:
