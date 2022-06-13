@@ -59,12 +59,16 @@ def read_form(form):
             modality += "R"
         if speaking:
             modality += "S"
-            
-        add_row(connector=service.spreadsheets(), sheet_name=name, row=[[str(date), minutes, modality, description]])
-        st.success(f"Thanks {name.split()[0]}, your entry was submitted")
-        st.balloons()
-        expander = st.expander("show my entries")
-        with expander:
-            st.dataframe(get_data(connector=service.spreadsheets(), sheet_name=name))
+        
+        try:
+            add_row(connector=service.spreadsheets(), sheet_name=name, row=[[str(date), minutes, modality, description]])
+            st.success(f"Thanks {name.split()[0]}, your entry was submitted")
+            st.balloons()
+            expander = st.expander("show my entries")
+            with expander:
+                st.dataframe(get_data(connector=service.spreadsheets(), sheet_name=name))
+        except:
+            st.error("Name does not exist")
+            return
 
 read_form(form)
