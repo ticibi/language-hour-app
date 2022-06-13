@@ -21,7 +21,6 @@ def add_row(connector, sheet_name, row) -> None:
     valueInputOption="USER_ENTERED",
     ).execute()
 
-@st.cache
 def get_data(connector, sheet_name) -> pd.DataFrame:
     values = (connector.values().get(
         spreadsheetId=SPREADSHEET_ID,
@@ -35,7 +34,6 @@ def get_data(connector, sheet_name) -> pd.DataFrame:
 
 def read_form(form):
     with form:
-        #cols = st.columns((1, 1))
         name = st.text_input(label="Name", placeholder="First Last")
         listening = st.checkbox(label="Listening")
         reading = st.checkbox(label="Reading")
@@ -51,9 +49,8 @@ def read_form(form):
 
         if len(description) < 1:
             st.error("You need to include what you studied...")
-            if minutes <= 0:
-                st.error("You need to study longer than 0 minutes...")
-            return
+        if minutes <= 0:
+            st.error("You need to study longer than 0 minutes...")
 
         modality = ""
         if listening:
@@ -63,14 +60,11 @@ def read_form(form):
         if speaking:
             modality += "S"
             
-        try:
-            add_row(connector=service.spreadsheets(), sheet_name=name, row=[[str(date), minutes, modality, description]])
-            st.success(f"Thanks {name.split()[0]}, your entry was submitted")
-            st.balloons()
-            expander = st.expander("show my entries")
-            with expander:
-                st.dataframe(get_data(connector=service.spreadsheets(), sheet_name=name))
-        except:
-            st.error("Name does not exist")
+        add_row(connector=service.spreadsheets(), sheet_name=name, row=[[str(date), minutes, modality, description]])
+        st.success(f"Thanks {name.split()[0]}, your entry was submitted")
+        st.balloons()
+        expander = st.expander("show my entries")
+        with expander:
+            st.dataframe(get_data(connector=service.spreadsheets(), sheet_name=name))
 
 read_form(form)
