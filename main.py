@@ -8,11 +8,10 @@ from googleapiclient.http import HttpRequest
 
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-SERVICE_ACCOUNT_FILE = st.secrets["google_service_account"]
 SPREADSHEET_ID = st.secrets["SPREADSHEET_ID"]
 
 
-credentials = service_account.Credentials.from_service_account_file(filename=SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+credentials = service_account.Credentials.from_service_account_info(st.secrets["google_service_account"], scopes=SCOPES)
 service = build(serviceName="sheets", version="v4", credentials=credentials)
 
 st.set_page_config(page_title="Language Hour", page_icon="🌐", layout="centered")
