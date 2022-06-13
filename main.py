@@ -1,10 +1,8 @@
-import httplib2
 import pandas as pd
 import streamlit as st
-import google_auth_httplib2
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from googleapiclient.http import HttpRequest
+
 
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
