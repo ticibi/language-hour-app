@@ -1,2 +1,2 @@
-google-oauth==x.x.x
-google-api-python-client==x.x.x
+google-oauth==1.0.1
+google-api-python-client==2.50.0
