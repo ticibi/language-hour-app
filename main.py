@@ -8,8 +8,8 @@ from googleapiclient.http import HttpRequest
 
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-GSHEET_URL = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}"
-SERVICE_ACCOUNT_FILE = "secrets/service_account.json"
+SERVICE_ACCOUNT_FILE = st.secrets["google_service_account"]
+SPREADSHEET_ID = st.secrets["SPREADSHEET_ID"]
 
 
 credentials = service_account.Credentials.from_service_account_file(filename=SERVICE_ACCOUNT_FILE, scopes=SCOPES)
