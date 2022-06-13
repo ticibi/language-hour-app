@@ -49,10 +49,11 @@ def read_form(form):
     if submitted:
         name = name.title()
 
-        if len(description) < 1:
-            st.error("You need to include what you studied...")
-        if minutes <= 0:
-            st.error("You need to study longer than 0 minutes...")
+        #if len(description) < 1:
+        #    st.error("You need to include what you studied...")
+        #    if minutes <= 0:
+        #        st.error("You need to study longer than 0 minutes...")
+        #    return
 
         modality = ""
         if listening:
