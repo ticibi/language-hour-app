@@ -35,11 +35,11 @@ def get_data(connector, sheet_name) -> pd.DataFrame:
 
 def read_form(form):
     with form:
-        cols = st.columns((1, 1))
-        name = cols[0].text_input(label="Name", placeholder="First Last")
-        listening = cols[0].checkbox(label="Listening")
-        reading = cols[0].checkbox(label="Reading")
-        speaking = cols[0].checkbox(label="Speaking")
+        #cols = st.columns((1, 1))
+        name = st.text_input(label="Name", placeholder="First Last")
+        listening = st.checkbox(label="Listening")
+        reading = st.checkbox(label="Reading")
+        speaking = st.checkbox(label="Speaking")
         description = st.text_area(label="Description", placeholder="what did you study?")
         cols = st.columns(2)
         date = cols[1].date_input(label="Date")
@@ -49,11 +49,11 @@ def read_form(form):
     if submitted:
         name = name.title()
 
-        #if len(description) < 1:
-        #    st.error("You need to include what you studied...")
-        #    if minutes <= 0:
-        #        st.error("You need to study longer than 0 minutes...")
-        #    return
+        if len(description) < 1:
+            st.error("You need to include what you studied...")
+            if minutes <= 0:
+                st.error("You need to study longer than 0 minutes...")
+            return
 
         modality = ""
         if listening:
