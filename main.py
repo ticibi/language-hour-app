@@ -4,10 +4,8 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 
-
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 SPREADSHEET_ID = st.secrets["SPREADSHEET_ID"]
-
 
 credentials = service_account.Credentials.from_service_account_info(st.secrets["google_service_account"], scopes=SCOPES)
 service = build(serviceName="sheets", version="v4", credentials=credentials)

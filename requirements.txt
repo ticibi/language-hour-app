@@ -1,1 +1,2 @@
-
+google.oauth2==x.x.x
+pip install google-api-python-client==x.x.x
