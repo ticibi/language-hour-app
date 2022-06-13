@@ -1,2 +1,2 @@
-google.oauth2==x.x.x
+google-oauth==x.x.x
 google-api-python-client==x.x.x
