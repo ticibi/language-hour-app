@@ -3,6 +3,7 @@ import streamlit as st
 import streamlit_authenticator as stauth
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from io import BytesIO
 
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -12,14 +13,14 @@ NAMES = st.secrets["USERS"]
 USERNAMES = st.secrets["USERNAMES"]
 PASSWORDS = st.secrets["PASSWORDS"]
 
+st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
+
 hashed_passwords = stauth.Hasher(PASSWORDS).generate()
 authenticator = stauth.Authenticate(NAMES, USERNAMES, hashed_passwords, "yummy_cookie", "key", cookie_expiry_days=30)
-Name, authentication_status, username = authenticator.login("LHT Login", "main")
+Name, authentication_status, username = authenticator.login("Language Hour Tracker Login", "main")
 
 credentials = service_account.Credentials.from_service_account_info(SERVICE_INFO, scopes=SCOPES)
 service = build(serviceName="sheets", version="v4", credentials=credentials)
-
-#st.set_page_config(page_title="Language Hour", page_icon="🌐", layout="centered")
 
 def add_row(connector, sheet_name, row) -> None:
     connector.values().append(spreadsheetId=SPREADSHEET_ID,
@@ -39,6 +40,17 @@ def get_data(connector, sheet_name) -> pd.DataFrame:
     df = df[1:]
     return df
 
+def to_excel(df):
+    output = BytesIO()
+    writer = pd.ExcelWriter(output, engine="xlsxwriter")
+    df.to_excel(writer, index=False, sheet_name="Sheet1")
+    writer.save()
+    data = output.getvalue()
+    return data
+
+def calculate_total_hours(name):
+    pass
+
 def main(form):
     with form:
         name = st.text_input(label="Name", value=Name, placeholder="Last name")
@@ -49,7 +61,11 @@ def main(form):
         cols = st.columns(2)
         date = cols[1].date_input(label="Date")
         minutes = cols[0].number_input(label="Minutes", min_value=0, max_value=240, step=15)
-        submitted = st.form_submit_button(label="Submit")
+        cols = st.columns(2)
+        submitted = cols[0].form_submit_button(label="Submit")
+
+    data = get_data(connector=service.spreadsheets(), sheet_name=name)
+    st.download_button(label="📥download my language hours", data=to_excel(data), file_name="myLanguageHours.xlsx")
 
     if submitted:
         if len(description) < 1:
@@ -76,9 +92,9 @@ def main(form):
             with expander:
                 st.dataframe(get_data(connector=service.spreadsheets(), sheet_name=name))
             st.balloons()
-        except Exception:
+        except:
             st.error("Name does not exist")
-            return
+
 
 if authentication_status:
     #authenticator.logout('Logout', 'main')
