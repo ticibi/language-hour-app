@@ -1,5 +1,6 @@
 import pandas as pd
 import streamlit as st
+import streamlit_authenticator as stauth
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
@@ -7,13 +8,18 @@ from googleapiclient.discovery import build
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 SPREADSHEET_ID = st.secrets["SPREADSHEET_ID"]
 SERVICE_INFO = st.secrets["google_service_account"]
+NAMES = st.secrets["USERS"]
+USERNAMES = st.secrets["USERNAMES"]
+PASSWORDS = st.secrets["PASSWORDS"]
+
+hashed_passwords = stauth.Hasher(PASSWORDS).generate()
+authenticator = stauth.Authenticate(NAMES, USERNAMES, hashed_passwords, "yummy_cookie", "key", cookie_expiry_days=30)
+Name, authentication_status, username = authenticator.login("Language Hour Entry Login", "main")
 
 credentials = service_account.Credentials.from_service_account_info(SERVICE_INFO, scopes=SCOPES)
 service = build(serviceName="sheets", version="v4", credentials=credentials)
 
-st.set_page_config(page_title="Language Hour", page_icon="🌐", layout="centered")
-st.title("Language Hour Entry")
-form = st.form(key="annotation")
+#st.set_page_config(page_title="Language Hour", page_icon="🌐", layout="centered")
 
 def add_row(connector, sheet_name, row) -> None:
     connector.values().append(spreadsheetId=SPREADSHEET_ID,
@@ -35,7 +41,7 @@ def get_data(connector, sheet_name) -> pd.DataFrame:
 
 def main(form):
     with form:
-        name = st.text_input(label="Name", placeholder="Last name")
+        name = st.text_input(label="Name", value=Name, placeholder="Last name")
         listening = st.checkbox(label="Listening")
         reading = st.checkbox(label="Reading")
         speaking = st.checkbox(label="Speaking")
@@ -61,7 +67,7 @@ def main(form):
         if speaking:
             modality += "S"
 
-        name = name.title()
+        name = name.title().split()[1]
 
         try:
             add_row(connector=service.spreadsheets(), sheet_name=name, row=[[str(date), minutes, modality, description]])
@@ -74,4 +80,13 @@ def main(form):
             st.error("Name does not exist")
             return
 
-main(form)
+if authentication_status:
+    #authenticator.logout('Logout', 'main')
+    st.title("Language Hour Entry")
+    form = st.form(key="annotation")
+    main(form)
+elif authentication_status == False:
+    st.error('Username/password is incorrect')
+elif authentication_status == None:
+    st.warning('Please enter your username and password')
+    
