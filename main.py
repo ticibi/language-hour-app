@@ -46,17 +46,12 @@ def main(form):
         submitted = st.form_submit_button(label="Submit")
 
     if submitted:
-        name = name.title()
-
         if len(description) < 1:
             st.error("You need to include what you studied...")
-            return
         if minutes <= 0:
             st.error("You need to study longer than 0 minutes...")
-            return
         if not any([listening, reading, speaking]) == True:
             st.error("You need to select at least 1 modality...")
-            return
 
         modality = ""
         if listening:
@@ -66,7 +61,11 @@ def main(form):
         if speaking:
             modality += "S"
 
+        name = name.title()
+
         try:
+            if len(description) < 1 or minutes <= 0 or not any([listening, reading, speaking]) == True:
+                return
             add_row(connector=service.spreadsheets(), sheet_name=name, row=[[str(date), minutes, modality, description]])
             st.success(f"Thanks {name.split()[0]}, your entry was submitted")
             expander = st.expander("show my entries")
