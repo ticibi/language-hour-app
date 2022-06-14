@@ -14,7 +14,7 @@ PASSWORDS = st.secrets["PASSWORDS"]
 
 hashed_passwords = stauth.Hasher(PASSWORDS).generate()
 authenticator = stauth.Authenticate(NAMES, USERNAMES, hashed_passwords, "yummy_cookie", "key", cookie_expiry_days=30)
-Name, authentication_status, username = authenticator.login("Language Hour Entry Login", "main")
+Name, authentication_status, username = authenticator.login("LHT Login", "main")
 
 credentials = service_account.Credentials.from_service_account_info(SERVICE_INFO, scopes=SCOPES)
 service = build(serviceName="sheets", version="v4", credentials=credentials)
