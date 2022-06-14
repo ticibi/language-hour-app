@@ -13,7 +13,7 @@ service = build(serviceName="sheets", version="v4", credentials=credentials)
 
 st.set_page_config(page_title="Language Hour", page_icon="🌐", layout="centered")
 st.title("Language Hour Entry")
-form = st.form(key="annotation", clear_on_submit=True)
+form = st.form(key="annotation")
 
 def add_row(connector, sheet_name, row) -> None:
     connector.values().append(spreadsheetId=SPREADSHEET_ID,
@@ -50,10 +50,13 @@ def main(form):
 
         if len(description) < 1:
             st.error("You need to include what you studied...")
+            return
         if minutes <= 0:
             st.error("You need to study longer than 0 minutes...")
-        if all([listening, reading, speaking]) == False:
+            return
+        if not any([listening, reading, speaking]) == True:
             st.error("You need to select at least 1 modality...")
+            return
 
         modality = ""
         if listening:
