@@ -69,10 +69,10 @@ def main(form):
             expander = st.expander("show my entries")
             with expander:
                 st.dataframe(get_data(connector=service.spreadsheets(), sheet_name=name))
+            st.balloons()
         except Exception:
             st.error("Name does not exist")
             return
 
-        st.balloons()
 
 main(form)
