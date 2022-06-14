@@ -67,7 +67,7 @@ def main(form):
         if speaking:
             modality += "S"
 
-        name = name.title().split()[1]
+        name = name.title()
 
         try:
             add_row(connector=service.spreadsheets(), sheet_name=name, row=[[str(date), minutes, modality, description]])
@@ -82,6 +82,7 @@ def main(form):
 
 if authentication_status:
     #authenticator.logout('Logout', 'main')
+    st.success("Login successful")
     st.title("Language Hour Entry")
     form = st.form(key="annotation")
     main(form)
