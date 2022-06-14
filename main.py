@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from io import StringIO
 
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -16,7 +17,7 @@ form = st.form(key="annotation", clear_on_submit=True)
 
 def add_row(connector, sheet_name, row) -> None:
     connector.values().append(spreadsheetId=SPREADSHEET_ID,
-    range=f"{sheet_name}!A:D",
+    range=f"{sheet_name}!A:E",
     body=dict(values=row),
     valueInputOption="USER_ENTERED",
     ).execute()
@@ -24,7 +25,7 @@ def add_row(connector, sheet_name, row) -> None:
 def get_data(connector, sheet_name) -> pd.DataFrame:
     values = (connector.values().get(
         spreadsheetId=SPREADSHEET_ID,
-        range=f"{sheet_name}!A:D",
+        range=f"{sheet_name}!A:E",
         ).execute()
     )
     df = pd.DataFrame(values["values"])
@@ -39,6 +40,7 @@ def read_form(form):
         reading = st.checkbox(label="Reading")
         speaking = st.checkbox(label="Speaking")
         description = st.text_area(label="Description", placeholder="what did you study?")
+        #upload = st.file_uploader(label="or upload a file to populate description")
         cols = st.columns(2)
         date = cols[1].date_input(label="Date")
         minutes = cols[0].number_input(label="Minutes", min_value=0, max_value=240, step=15)
@@ -51,6 +53,8 @@ def read_form(form):
             st.error("You need to include what you studied...")
         if minutes <= 0:
             st.error("You need to study longer than 0 minutes...")
+        if all([listening, reading, speaking]) == False:
+            st.error("You need to select at least 1 modality...")
 
         modality = ""
         if listening:
@@ -59,6 +63,11 @@ def read_form(form):
             modality += "R"
         if speaking:
             modality += "S"
+
+        #if upload:
+        #    stringio = StringIO(upload.getvalue().decode("utf-8"))
+        #    string_data = stringio.read()
+        #    description = string_data
         
         try:
             add_row(connector=service.spreadsheets(), sheet_name=name, row=[[str(date), minutes, modality, description]])
