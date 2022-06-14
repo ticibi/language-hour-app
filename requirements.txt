@@ -2,3 +2,4 @@ pandas
 google_api_python_client
 streamlit
 streamlit_authenticator
+xlsxwriter
