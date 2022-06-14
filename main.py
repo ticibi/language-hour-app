@@ -64,8 +64,6 @@ def main(form):
         name = name.title()
 
         try:
-            if len(description) < 1 or minutes <= 0 or not any([listening, reading, speaking]) == True:
-                return
             add_row(connector=service.spreadsheets(), sheet_name=name, row=[[str(date), minutes, modality, description]])
             st.success(f"Thanks {name.split()[0]}, your entry was submitted")
             expander = st.expander("show my entries")
