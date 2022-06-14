@@ -2,13 +2,13 @@ import pandas as pd
 import streamlit as st
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from io import StringIO
 
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 SPREADSHEET_ID = st.secrets["SPREADSHEET_ID"]
+SERVICE_INFO = st.secrets["google_service_account"]
 
-credentials = service_account.Credentials.from_service_account_info(st.secrets["google_service_account"], scopes=SCOPES)
+credentials = service_account.Credentials.from_service_account_info(SERVICE_INFO, scopes=SCOPES)
 service = build(serviceName="sheets", version="v4", credentials=credentials)
 
 st.set_page_config(page_title="Language Hour", page_icon="🌐", layout="centered")
@@ -33,14 +33,13 @@ def get_data(connector, sheet_name) -> pd.DataFrame:
     df = df[1:]
     return df
 
-def read_form(form):
+def main(form):
     with form:
-        name = st.text_input(label="Name", placeholder="First Last")
+        name = st.text_input(label="Name", placeholder="Last name")
         listening = st.checkbox(label="Listening")
         reading = st.checkbox(label="Reading")
         speaking = st.checkbox(label="Speaking")
         description = st.text_area(label="Description", placeholder="what did you study?")
-        #upload = st.file_uploader(label="or upload a file to populate description")
         cols = st.columns(2)
         date = cols[1].date_input(label="Date")
         minutes = cols[0].number_input(label="Minutes", min_value=0, max_value=240, step=15)
@@ -64,20 +63,16 @@ def read_form(form):
         if speaking:
             modality += "S"
 
-        #if upload:
-        #    stringio = StringIO(upload.getvalue().decode("utf-8"))
-        #    string_data = stringio.read()
-        #    description = string_data
-        
         try:
             add_row(connector=service.spreadsheets(), sheet_name=name, row=[[str(date), minutes, modality, description]])
             st.success(f"Thanks {name.split()[0]}, your entry was submitted")
-            st.balloons()
             expander = st.expander("show my entries")
             with expander:
                 st.dataframe(get_data(connector=service.spreadsheets(), sheet_name=name))
-        except:
+        except Exception:
             st.error("Name does not exist")
             return
 
-read_form(form)
+        st.balloons()
+
+main(form)
