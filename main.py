@@ -3,6 +3,7 @@ import streamlit as st
 import streamlit_authenticator as stauth
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from time import sleep
 
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -83,6 +84,7 @@ def main(form):
 if authentication_status:
     #authenticator.logout('Logout', 'main')
     st.success("Login successful")
+    sleep(1)
     st.title("Language Hour Entry")
     form = st.form(key="annotation")
     main(form)
