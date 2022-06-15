@@ -60,7 +60,7 @@ Name, authentication_status, username = authenticator.login("Language Hour Track
 def main(form):
     with form:
         cols = st.columns(2)
-        name = cols[0].text_input(label="Name", value=Name, placeholder="Last name")
+        name = cols[0].text_input(label="Name", value=Name, placeholder="Last name", disabled=True)
         supervisor = cols[1].selectbox(label="Supervisor", options=NAMES)
         cols = st.columns((2, 1, 1))
         minutes = cols[1].number_input(label="Minutes", min_value=0, max_value=240, step=15)
@@ -75,13 +75,23 @@ def main(form):
 
     name = name.title()
 
+    if not name in NAMES:
+        st.error("Name does not exist")
+        return
+
+    data = get_data(connector=service.spreadsheets(), sheet_name=name)
+    st.download_button(label="📥download my language hours", data=to_excel(data), file_name="myLanguageHours.xlsx")
+
     if submitted:
         if len(description) < 1:
             st.error("You need to include what you studied...")
+            return
         if minutes <= 0:
             st.error("You need to study longer than 0 minutes...")
+            return
         if not any([listening, reading, speaking]) == True:
             st.error("You need to select at least 1 modality...")
+            return
 
         modality = ""
         if listening:
@@ -91,17 +101,12 @@ def main(form):
         if speaking:
             modality += "S"
 
-        try:
-            add_row(connector=service.spreadsheets(), sheet_name=name, row=[[str(date), minutes, modality, description]])
-            st.success(f"Thanks {name}, your entry was submitted")
-            expander = st.expander("show my entries")
-            with expander:
-                st.dataframe(get_data(connector=service.spreadsheets(), sheet_name=name))
-            st.balloons()
-            data = get_data(connector=service.spreadsheets(), sheet_name=name)
-            st.download_button(label="📥download my language hours", data=to_excel(data), file_name="myLanguageHours.xlsx")
-        except:
-            st.error("Name does not exist")
+        add_row(connector=service.spreadsheets(), sheet_name=name, row=[[str(date), minutes, modality, description]])
+        st.success(f"Thanks {name}, your entry was submitted")
+        expander = st.expander("show my entries")
+        with expander:
+            st.dataframe(get_data(connector=service.spreadsheets(), sheet_name=name))
+        st.balloons()
 
 
 if authentication_status:
