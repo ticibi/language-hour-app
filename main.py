@@ -80,7 +80,7 @@ def main(form):
         return
 
     data = get_data(connector=service.spreadsheets(), sheet_name=name)
-    st.download_button(label="📥download my language hours", data=to_excel(data), file_name="myLanguageHours.xlsx")
+    st.download_button(label="📥 Download myLanguageHours", data=to_excel(data), file_name="myLanguageHours.xlsx")
 
     if submitted:
         if len(description) < 1:
@@ -102,8 +102,8 @@ def main(form):
             modality += "S"
 
         add_row(connector=service.spreadsheets(), sheet_name=name, row=[[str(date), minutes, modality, description]])
-        st.success(f"Thanks {name}, your entry was submitted")
-        expander = st.expander("show my entries")
+        st.success(f"Thanks {name}! Your entry has been submitted")
+        expander = st.expander("Show my entries")
         with expander:
             st.dataframe(get_data(connector=service.spreadsheets(), sheet_name=name))
         st.balloons()
