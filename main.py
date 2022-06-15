@@ -9,15 +9,12 @@ from io import BytesIO
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 SPREADSHEET_ID = st.secrets["SPREADSHEET_ID"]
 SERVICE_INFO = st.secrets["google_service_account"]
-NAMES = st.secrets["USERS"]
-USERNAMES = st.secrets["USERNAMES"]
-PASSWORDS = st.secrets["PASSWORDS"]
+USER_SHEET = st.secrets["USER_SHEET"]
+#NAMES = st.secrets["USERS"]
+#USERNAMES = st.secrets["USERNAMES"]
+#PASSWORDS = st.secrets["PASSWORDS"]
 
 st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
-
-hashed_passwords = stauth.Hasher(PASSWORDS).generate()
-authenticator = stauth.Authenticate(NAMES, USERNAMES, hashed_passwords, "yummy_cookie", "key", cookie_expiry_days=30)
-Name, authentication_status, username = authenticator.login("Language Hour Tracker Login", "main")
 
 credentials = service_account.Credentials.from_service_account_info(SERVICE_INFO, scopes=SCOPES)
 service = build(serviceName="sheets", version="v4", credentials=credentials)
@@ -51,21 +48,32 @@ def to_excel(df):
 def calculate_total_hours(name):
     pass
 
+user_data = get_data(connector=service.spreadsheets(), sheet_name=USER_SHEET)
+NAMES = user_data["Name"].tolist()
+USERNAMES = user_data["Username"].tolist()
+PASSWORDS = user_data["Password"].tolist()
+
+hashed_passwords = stauth.Hasher(PASSWORDS).generate()
+authenticator = stauth.Authenticate(NAMES, USERNAMES, hashed_passwords, "yummy_cookie", "key", cookie_expiry_days=30)
+Name, authentication_status, username = authenticator.login("Language Hour Tracker Login", "main")
+
 def main(form):
     with form:
-        name = st.text_input(label="Name", value=Name, placeholder="Last name")
-        listening = st.checkbox(label="Listening")
-        reading = st.checkbox(label="Reading")
-        speaking = st.checkbox(label="Speaking")
-        description = st.text_area(label="Description", placeholder="what did you study?")
+        cols = st.columns(2)
+        name = cols[0].text_input(label="Name", value=Name, placeholder="Last name")
+        supervisor = cols[1].selectbox(label="Supervisor", options=NAMES)
+        cols = st.columns((1, 4))
+        listening = cols[0].checkbox(label="Listening")
+        reading = cols[0].checkbox(label="Reading")
+        speaking = cols[0].checkbox(label="Speaking")
+        description = cols[1].text_area(label="Description", placeholder="what did you study?")
         cols = st.columns(2)
         date = cols[1].date_input(label="Date")
         minutes = cols[0].number_input(label="Minutes", min_value=0, max_value=240, step=15)
         cols = st.columns(2)
         submitted = cols[0].form_submit_button(label="Submit")
 
-    data = get_data(connector=service.spreadsheets(), sheet_name=name)
-    st.download_button(label="📥download my language hours", data=to_excel(data), file_name="myLanguageHours.xlsx")
+    name = name.title()
 
     if submitted:
         if len(description) < 1:
@@ -83,22 +91,21 @@ def main(form):
         if speaking:
             modality += "S"
 
-        name = name.title()
-
         try:
             add_row(connector=service.spreadsheets(), sheet_name=name, row=[[str(date), minutes, modality, description]])
-            st.success(f"Thanks {name.split()[0]}, your entry was submitted")
+            st.success(f"Thanks {name}, your entry was submitted")
             expander = st.expander("show my entries")
             with expander:
                 st.dataframe(get_data(connector=service.spreadsheets(), sheet_name=name))
             st.balloons()
+            data = get_data(connector=service.spreadsheets(), sheet_name=name)
+            st.download_button(label="📥download my language hours", data=to_excel(data), file_name="myLanguageHours.xlsx")
         except:
             st.error("Name does not exist")
 
 
 if authentication_status:
-    #authenticator.logout('Logout', 'main')
-    st.success("Login successful")
+    #st.success("Login successful")
     st.title("Language Hour Entry")
     form = st.form(key="annotation")
     main(form)
