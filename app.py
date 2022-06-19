@@ -6,6 +6,7 @@ import streamlit_authenticator as stauth
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
+
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive",]
 LHT = st.secrets["LHT_SHEET_ID"]
 LST = st.secrets["LST_SHEET_ID"]
@@ -14,9 +15,12 @@ USER_SHEET_ID = st.secrets["USER_SHEET_ID"]
 SERVICE_INFO = st.secrets["google_service_account"]
 PASSWORD = st.secrets["PASSWORD"]
 
+
 st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
 credentials = service_account.Credentials.from_service_account_info(info=SERVICE_INFO, scopes=SCOPES)
 service = build(serviceName="sheets", version="v4", credentials=credentials)
+CONNECTOR = service.spreadsheets()
+
 
 def timeit(func):
     def wrapper(*args, **kwargs):
@@ -70,19 +74,21 @@ def format_modality(*args, **kwargs):
         output += "S"
     return output
 
-CONNECTOR = service.spreadsheets()
 
-user_data = get_data(column=None, sheet="Members", worksheet=LHT)
-hashed_passwords = stauth.Hasher(user_data["Password"].tolist()).generate()
-authenticator = stauth.Authenticate(user_data["Name"].tolist(), user_data["Username"].tolist(), hashed_passwords, "lht_cookie", "lht", cookie_expiry_days=30)
-Name, authentication_status, username = authenticator.login("Language Hour Tracker Login", "main")
-
-if authentication_status:
+def entry_page(*args, **kwargs):
     st.title("Language Hour Entry")
+    with st.sidebar:
+        st.header(f"Welcome {kwargs['name'].split(',')[1]}")
+        st.button("Update Info")
+        st.text_input(label="Search")
+        with st.expander(label="My Troops"):
+            st.write("placeholder")
+        kwargs["authenticator"].logout("Logout")
+
     form = st.form(key="user_form", clear_on_submit=True)
     with form:
         cols = st.columns((2, 1, 1))
-        name = cols[0].text_input(label="Name", value=Name, placeholder="Last name", disabled=True)
+        name = cols[0].text_input(label="Name", value=kwargs['name'], placeholder="Last name", disabled=True)
         hours = cols[1].text_input(label=f"Hours - {sum_hours(name)} submitted")
         date = cols[2].date_input(label="Date")
         listening = cols[0].checkbox(label="Listening")
@@ -102,15 +108,42 @@ if authentication_status:
         st.balloons()
 
     expander = st.expander("Show my Language Hour entries")
-    data = get_data(column=None, sheet=Name, worksheet=LHT)
+    data = get_data(column=None, sheet=kwargs["name"], worksheet=LHT)
     with expander:
         st.dataframe(data)
 
     st.download_button(label="📥 Download my Language Hours", data=to_excel(data), file_name="myLanguageHours.xlsx", key="download")
-    authenticator.logout("Logout")
-
-elif authentication_status == False:
-    st.error('Username or password is incorrect')
-
-elif authentication_status == None:
+    # add entry
     pass
+
+def admin_page(*args, **kwargs):
+    # add user
+    # remove user
+    # update info
+    # search, download user entry
+    # download complete tracker
+
+    pass
+
+def account_page(*args, **kwargs):
+    # update scores
+    # update test, class dates
+    # update supervisor, mentor
+    # view 623 entries
+    pass
+
+def main():
+    user_data = get_data(column=None, sheet="Members", worksheet=LHT)
+    hashed_passwords = stauth.Hasher(user_data["Password"].tolist()).generate()
+    authenticator = stauth.Authenticate(user_data["Name"].tolist(), user_data["Username"].tolist(), hashed_passwords, "lht_cookie", "lht", cookie_expiry_days=30)
+    name, authentication_status, username = authenticator.login("Language Hour Tracker Login", "main")
+
+    if authentication_status:
+        entry_page(authenticator=authenticator, name=name, username=username)
+    elif authentication_status == False:
+        st.error('Username or password is incorrect')
+    elif authentication_status == None:
+        pass
+
+if __name__ == "__main__":
+    main()
