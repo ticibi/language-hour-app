@@ -56,7 +56,7 @@ def sum_hours(name):
     return sum([float(hr) for hr in hours])
 
 user_data = get_data(column=None, sheet="Members", worksheet=LHT)
-hashed_passwords = stauth.Hasher([PASSWORD for _ in user_data]).generate()
+hashed_passwords = stauth.Hasher(user_data["Password"].tolist()).generate()
 authenticator = stauth.Authenticate(user_data["Name"].tolist(), user_data["Username"].tolist(), hashed_passwords, "lht_cookie", "lht", cookie_expiry_days=30)
 Name, authentication_status, username = authenticator.login("Language Hour Tracker Login", "main")
 
