@@ -156,23 +156,37 @@ def get_subs(name) -> list:
     subs = df[["Name", "Supervisor"]].loc[df["Supervisor"] == name]
     return list(subs["Name"])
 
+def sidebar(*args, **kwargs):
+    with st.expander(label="Download/Upload Files"):
+        data = get_data(column=None, sheet=kwargs["name"], worksheet=LHT)
+        st.download_button(label="📥 Download My Language Hours", data=to_excel(data), file_name="myLanguageHours.xlsx")
+        uploaded_file = st.file_uploader(label="Upload a 623A entry or ILTP", type=["pdf", "txt", "docx"])
+
+    with st.expander(label="My Files"):
+        files = get_files(kwargs["name"])
+        for f in files:
+            st.button(label=f["name"])
+
+    with st.expander(label="My Troops"):
+        subs = get_subs(kwargs["name"])
+        for s in subs:
+            st.button(label=s)
+
+    if uploaded_file:
+        with st.spinner(text="uploading file..."):
+            try:
+                upload_file(file=uploaded_file, folder_name=kwargs["name"])
+                st.sidebar.success("File uploaded successfully!")
+            except:
+                st.sidebar.error("File upload failed")
+        os.remove(f"temp/{uploaded_file.name}")
+
 def entry_page(*args, **kwargs):
     st.title("Language Hour Entry")
     with st.sidebar:
         st.header(f"Welcome {kwargs['name']}")
-        account_page(kwargs["name"], kwargs["username"])
-        with st.expander(label="Download/Upload Files"):
-            data = get_data(column=None, sheet=kwargs["name"], worksheet=LHT)
-            st.download_button(label="📥 Download My Language Hours", data=to_excel(data), file_name="myLanguageHours.xlsx")
-            uploaded_file = st.file_uploader(label="Upload a 623A entry or ILTP", type=["pdf", "txt", "docx"])
-        with st.expander(label="My Files"):
-            files = get_files(kwargs["name"])
-            for f in files:
-                st.button(label=f["name"])
-        with st.expander(label="My Troops"):
-            subs = get_subs(kwargs["name"])
-            for s in subs:
-                st.button(label=s)
+        account_page(*args, **kwargs)
+        sidebar(*args, **kwargs)
 
     form = st.form(key="user_form", clear_on_submit=True)
     with form:
@@ -188,15 +202,6 @@ def entry_page(*args, **kwargs):
         vocab = cols[1].text_area(label="Vocab", height=150, placeholder="list the vocab you learned and/or reviewed\nexample:\nبطيخ - watermelon\nاحتكار - monopoly")
         cols = st.columns(2)
         submitted = cols[0].form_submit_button(label="Submit")
-
-    if uploaded_file:
-        with st.spinner(text="uploading file..."):
-            try:
-                upload_file(file=uploaded_file, folder_name=name)
-                st.sidebar.success("File uploaded successfully!")
-            except:
-                st.sidebar.error("File upload failed")
-        os.remove(f"temp/{uploaded_file.name}")
 
     if submitted:
         modality = format_modality(listening=listening, reading=reading, speaking=speaking)
@@ -247,11 +252,11 @@ def admin_page(*args, **kwargs):
         st.write(f"Go to [Language Hour Tracker]({LHT_URL})")
         st.write(f"Go to [Google Drive]({DRIVE_URL})")
 
-def account_page(name, username):
+def account_page(*args, **kwargs):
     st.title("My Account")
     with st.expander(label="Update Account Info"):
-        st.text_input(label="Name", value=name)
-        st.text_input(label="Username", value=username)
+        st.text_input(label="Name", value=kwargs["name"])
+        st.text_input(label="Username", value=kwargs["username"])
         st.text_input(label="Password")
         st.button(label="Save")
 
