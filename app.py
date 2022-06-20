@@ -6,6 +6,7 @@ import streamlit as st
 import streamlit_authenticator as stauth
 from google.oauth2 import service_account
 from googleapiclient.discovery import build, MediaFileUpload
+from datetime import datetime
 
 
 
@@ -63,7 +64,6 @@ def timeit(func):
         return output
     return wrapper
 
-@st.cache
 def get_data(column, sheet, worksheet, range="A:E"):
     values = (sheets_service.spreadsheets().values().get(
         spreadsheetId=worksheet,
@@ -83,8 +83,8 @@ def add_entry(worksheet, sheet, data:list, range="A:E"):
         valueInputOption="USER_ENTERED",
     ).execute()
 
-def get_folder_id(name):
-    query = f"mimeType='application/vnd.google-apps.folder' and name='{name}'"
+def get_folder_id(folder_name) -> str:
+    query = f"mimeType='application/vnd.google-apps.folder' and name='{folder_name}'"
     file = drive_service.files().list(q=query, fields="files(id)").execute()
     return file["files"][0]["id"]
 
@@ -98,15 +98,30 @@ def upload_file(file, folder_name):
         media = MediaFileUpload(f"temp/{file.name}", mimetype="*/*")
         drive_service.files().create(body=file_metadata, media_body=media, fields="id").execute()
 
+def get_files(folder_name):
+    folder_id = get_folder_id(folder_name)
+    query = f"parents = '{folder_id}'"
+    response = drive_service.files().list(q=query).execute()
+    files = response.get("files")
+    nextPageToken = response.get("nextPageToken")
+    while nextPageToken:
+        response = drive_service.files().list(q=query).execute()
+        files.extend(response.get("files"))
+    return files
+
 def entry_page(*args, **kwargs):
     st.title("Language Hour Entry")
     with st.sidebar:
-        st.header(f"Welcome {kwargs['name'].split(',')[1]}")
-        if st.button("Update My Info"):
-            account_page(args, kwargs)
+        st.header(f"Welcome {kwargs['name']}")
         data = get_data(column=None, sheet=kwargs["name"], worksheet=LHT)
-        st.download_button(label="📥 Download my Language Hours", data=to_excel(data), file_name="myLanguageHours.xlsx")
-        uploaded_file = st.file_uploader(label="Upload a 623A entry or ILTP", type=["pdf", "txt", "docx"])
+        account_page(kwargs["name"], kwargs["username"])
+        with st.expander(label="Download/Upload Files"):
+            st.download_button(label="📥 Download My Language Hours", data=to_excel(data), file_name="myLanguageHours.xlsx")
+            uploaded_file = st.file_uploader(label="Upload a 623A entry or ILTP", type=["pdf", "txt", "docx"])
+        with st.expander(label="My Files"):
+            files = get_files(kwargs["name"])
+            for f in files:
+                st.button(label=f["name"])
 
     form = st.form(key="user_form", clear_on_submit=True)
     with form:
@@ -180,33 +195,17 @@ def admin_page(*args, **kwargs):
                 st.selectbox(label="Name", options=lst_data)
                 st.form_submit_button(label="Update Info")
 
-        #st.text_input(label="Query", placeholder="search terms")
         st.write(f"Go to [Language Score Tracker]({LST_URL})")
         st.write(f"Go to [Language Hour Tracker]({LHT_URL})")
         st.write(f"Go to [Google Drive]({DRIVE_URL})")
 
-    # update info
-    # search, download user entry
-    # download complete tracker
-    pass
-
-def account_page(*args, **kwargs):
-    st.title("My Info")
-    form = st.form(key="info_form")
-    with form:
-        lst_data = get_data(column="Name", sheet="Main", worksheet=LST, range="A:K")
-        st.text_input(label="Name")
-        st.text_input(label="Username")
-        st.selectbox(label="CLang", options=["AP", "AD", "DG",])
-        st.text_input(label="ILTP Status")
-        st.date_input(label="SLTE Date")
-        st.date_input(label="DLPT Date")
-        st.text_input(label="CL - Listening")
-        st.text_input(label="MSA - Listening")
-        st.text_input(label="MSA - Reading")
-        st.text_input(label="Dialects", placeholder="dialect 1+, dialect 3...")
-        st.text_input(label="Mentor")
-        st.selectbox(label="Supervisor", options=lst_data)
+def account_page(name, username):
+    st.title("My Account")
+    with st.expander(label="Update Account Info"):
+        st.text_input(label="Name", value=name)
+        st.text_input(label="Username", value=username)
+        st.text_input(label="Password")
+        st.button(label="Save")
 
 def create_folder(name):
     file_metadata = {
@@ -239,11 +238,11 @@ def add_member(name, username, password, flags):
     ).execute()
     # create folder on the drive with the users name
     create_folder(name)
-    
-def check_permissions(name) -> bool:
+
+def is_admin(name) -> bool:
     df = get_data(column=None, sheet="Members", worksheet=LHT)
     output = df.query(f"Name == '{name}'")["Flags"]
-    return True if output is not None else False
+    return True if list(output)[0] is not None else False
 
 def login():
     user_data = get_data(column=None, sheet="Members", worksheet=LHT)
@@ -254,10 +253,10 @@ def login():
     if authentication_status:
         with st.spinner(text="loading..."):
             entry_page(authenticator=authenticator, name=name, username=username)
-            if check_permissions(name):
+            if is_admin(name):
                 admin_page(authenticator=authenticator, name=name, username=username)
         authenticator.logout("Logout", location="sidebar")
-    elif not authentication_status:
+    elif authentication_status == False:
         st.error('Username or password is incorrect')
     elif authentication_status == None:
         pass
