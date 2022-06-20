@@ -248,9 +248,10 @@ def admin_page(*args, **kwargs):
                 st.selectbox(label="Name", options=lst_data)
                 st.form_submit_button(label="Update Info")
 
-        st.write(f"Go to [Language Score Tracker]({LST_URL})")
-        st.write(f"Go to [Language Hour Tracker]({LHT_URL})")
-        st.write(f"Go to [Google Drive]({DRIVE_URL})")
+        st.write("GO TO")
+        st.write(f"[Language Score Tracker]({LST_URL})")
+        st.write(f"[Language Hour Tracker]({LHT_URL})")
+        st.write(f"[Google Drive]({DRIVE_URL})")
 
 def account_page(*args, **kwargs):
     st.title("My Account")
