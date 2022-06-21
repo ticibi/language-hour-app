@@ -27,14 +27,6 @@ FOLDER_ID = st.secrets["FOLDER_ID"]
 DRIVE_URL = st.secrets["DRIVE_URL"]
 
 
-if 'authentication_status' not in st.session_state:
-    st.session_state['authentication_status'] = None
-if 'username' not in st.session_state:
-    st.session_state['username'] = None
-if 'logout' not in st.session_state:
-    st.session_state['logout'] = None
-
-
 st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
 credentials = service_account.Credentials.from_service_account_info(info=SERVICE_INFO, scopes=SCOPES)
 sheets_service = build(serviceName="sheets", version="v4", credentials=credentials)
@@ -225,7 +217,7 @@ def my_account_sidebar(user):
         if st.button(label="Save"):
             pass
 
-def sidebar(user):
+def sidebars(user):
     my_account_sidebar(user)
     file_download_sidebar(user)
     my_files_sidebar(user)
@@ -235,10 +227,9 @@ def entry_page(user):
     st.title("Language Hour Entry")
     with st.sidebar:
         st.header(f"Welcome {user['Name']}")
-        sidebar(user)
+        sidebars(user)
 
-    form = st.form(key="user_form", clear_on_submit=True)
-    with form:
+    with st.form(key="user_form"):
         cols = st.columns((2, 1, 1))
         name = cols[0].text_input(label="Name", value=user["Name"], placeholder="Last name", disabled=True)
         hours = cols[1].text_input(label=f"Hours - {sum_hours(name)} submitted")
@@ -250,20 +241,18 @@ def entry_page(user):
         description = cols[0].text_area(label="Description", height=150, placeholder="describe what you did/understood/struggled with\nexample:\nlistened to lvl 2+ passages about politics in Lebanon etc...\nthen answered questions about it and scored 90%. etc")
         vocab = cols[1].text_area(label="Vocab", height=150, placeholder="list the vocab you learned or reviewed:\nبطيخ - watermelon\nاحتكار - monopoly")
         cols = st.columns(2)
-        submitted = cols[0].form_submit_button(label="Submit")
-
-    if submitted:
-        modality = format_modality(listening=listening, reading=reading, speaking=speaking)
-        add_entry(worksheet=LHT, sheet=name, data=[[str(date), float(hours), modality, description, ",".join(vocab.split())]])
-        st.success(f"Thanks {name.split(',')[1]}! Your entry has been submitted")
-        st.balloons()
+        if cols[0].form_submit_button("Submit"):
+            modality = format_modality(listening=listening, reading=reading, speaking=speaking)
+            add_entry(worksheet=LHT, sheet=name, data=[[str(date), float(hours), modality, description, ",".join(vocab.split())]])
+            st.success(f"Thanks {name.split(',')[1]}! Your entry has been submitted")
+            st.balloons()
 
     expander = st.expander("Show my Language Hour entries")
     data = get_data(column=None, sheet=user["Name"], worksheet=LHT)
     with expander:
         st.dataframe(data)
 
-def admin_page(user):
+def admin_sidebar(user):
     with st.sidebar:
         st.header("Admin Tools")
         with st.expander(label="Add Member"):
@@ -310,33 +299,59 @@ def authenticate_user(username, password):
         users = get_data(column=None, sheet="Members", worksheet=LHT)
         user = users.loc[users["Username"] == username]
         if user.empty:
-            st.session_state['authentication_status'] = False
             return False
         if password == user["Password"].values:
-            st.session_state['authentication_status'] = True
             return True, user.to_dict("records")[0]
-        st.session_state['authentication_status'] = False
         return False
 
 def login():
-    status = False
-    if st.session_state['authentication_status'] != True:
-        container = st.empty()
-        with container.container():
-            login_form = st.form("Login")
-            login_form.subheader("Login")
-            username = login_form.text_input(label="Username")
-            st.session_state["username"] = username
-            password = login_form.text_input(label="Password", type="password")
-            if login_form.form_submit_button("Login"):
-                status, user = authenticate_user(username, password)
-    if status:
-        container.empty()
+    #status = False
+    #if st.session_state['authentication_status'] != True:
+    #    container = st.empty()
+    #    with container.container():
+    #        login_form = st.form("Login")
+    #        login_form.subheader("Login")
+    #        username = login_form.text_input(label="Username")
+    #        st.session_state["username"] = username
+    #        password = login_form.text_input(label="Password", type="password")
+    #        if login_form.form_submit_button("Login"):
+    #            status, user = authenticate_user(username, password)
+    #if status:
+    #    container.empty()
+    #    with st.spinner(text="loading..."):
+    #        entry_page(user)
+    #        if is_admin(user):
+    #            admin_sidebar(user)
+    #if status == False or not status:
+    #    st.error("Could not login. Check username and password.")
+
+    #status = False
+    #st.subheader("Language Hour Login")
+    #username = st.text_input(label="Username")
+    #password = st.text_input(label="Password", type="password")
+    #if st.button("Login"):
+    #    status, user = authenticate_user(username, password)
+#
+    #if status:
+    #    entry_page(user)
+    #    if is_admin(user):
+    #        admin_sidebar(user)
+
+    users = get_data(column=None, sheet="Members", worksheet=LHT)
+    hashed_passwords = stauth.Hasher(users["Password"].tolist()).generate()
+    authenticator = stauth.Authenticate(users["Name"].tolist(), users["Username"].tolist(), hashed_passwords, "lht_cookie", "lht", cookie_expiry_days=30)
+    name, authentication_status, username = authenticator.login("Language Hour Tracker Login", "main")
+    status, user = authenticate_user(username, PASSWORD)
+
+    if authentication_status:
         with st.spinner(text="loading..."):
             entry_page(user)
             if is_admin(user):
-                admin_page(user)
-    if status == False or not status:
-        st.error("Could not login. Check username and password.")
+                admin_sidebar(user)
+        authenticator.logout("Logout", location="sidebar")
+    elif authentication_status == False:
+        st.error('Username or password is incorrect')
+    elif authentication_status == None:
+        pass
 
 login()
