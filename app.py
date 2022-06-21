@@ -7,6 +7,7 @@ import streamlit_authenticator as stauth
 from google.oauth2 import service_account
 from googleapiclient.discovery import build, MediaFileUpload
 from googleapiclient.http import MediaIoBaseDownload
+from datetime import datetime
 
 
 SCOPES = [
@@ -26,10 +27,19 @@ FOLDER_ID = st.secrets["FOLDER_ID"]
 DRIVE_URL = st.secrets["DRIVE_URL"]
 
 
+if 'authentication_status' not in st.session_state:
+    st.session_state['authentication_status'] = None
+if 'username' not in st.session_state:
+    st.session_state['username'] = None
+if 'logout' not in st.session_state:
+    st.session_state['logout'] = None
+
+
 st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
 credentials = service_account.Credentials.from_service_account_info(info=SERVICE_INFO, scopes=SCOPES)
 sheets_service = build(serviceName="sheets", version="v4", credentials=credentials)
 drive_service = build(serviceName="drive", version="v3", credentials=credentials)
+
 
 def create_folder(name):
     file_metadata = {
@@ -156,42 +166,81 @@ def get_subs(name) -> list:
     subs = df[["Name", "Supervisor"]].loc[df["Supervisor"] == name]
     return list(subs["Name"])
 
-def sidebar(*args, **kwargs):
-    with st.expander(label="Download/Upload Files"):
-        data = get_data(column=None, sheet=kwargs["name"], worksheet=LHT)
-        st.download_button(label="📥 Download My Language Hours", data=to_excel(data), file_name="myLanguageHours.xlsx")
-        uploaded_file = st.file_uploader(label="Upload a 623A entry or ILTP", type=["pdf", "txt", "docx"])
+def calculate_hours_required(name):
+    data = get_data(column="Hours", sheet=name, worksheet=LHT)
 
+def calculate_hours_done(name):
+    df = get_data(column=None, sheet=name, worksheet=LHT)
+    this_month = datetime.now().date().month
+    data = df[["Date", "Hours"]]
+    hours = sum([int(d[1]) for d in data.values if int(d[0][5:7]) == this_month])
+    return hours
+
+def get_vocab(name):
+    data = get_data(column="Vocab", sheet=name, worksheet=LHT)
+    return data
+
+
+
+def my_files_sidebar(user):
+    button_data = []
     with st.expander(label="My Files"):
-        files = get_files(kwargs["name"])
+        files = get_files(user["Name"])
+        if not files:
+            st.write("No Files")
         for f in files:
-            st.button(label=f["name"])
+            button_data.append(f)
+            st.button(label=f["name"], key=f["id"])
 
+def my_subs_sidebar(user):
     with st.expander(label="My Troops"):
-        subs = get_subs(kwargs["name"])
+        subs = get_subs(user["Name"])
         for s in subs:
-            st.button(label=s)
+            cols = st.columns(2)
+            cols[0].button(label=s)
+            cols[1].write(f"{calculate_hours_done(s)} hrs")
 
-    if uploaded_file:
-        with st.spinner(text="uploading file..."):
-            try:
-                upload_file(file=uploaded_file, folder_name=kwargs["name"])
-                st.sidebar.success("File uploaded successfully!")
-            except:
-                st.sidebar.error("File upload failed")
-        os.remove(f"temp/{uploaded_file.name}")
+def file_download_sidebar(user):
+    with st.expander(label="Download/Upload Files"):
+        data = get_data(column=None, sheet=user["Name"], worksheet=LHT)
+        st.download_button(label="📥 Download My Language Hours", data=to_excel(data), file_name="myLanguageHours.xlsx")
+        vocab = pd.DataFrame(get_vocab(user["Name"]))
+        st.download_button(label="Download My Vocab", data=to_excel(vocab), file_name="myVocab.xlsx")
+        uploaded_file = st.file_uploader(label="Upload a 623A entry or ILTP", type=["pdf", "txt", "docx"])
+        if uploaded_file:
+            with st.spinner(text="uploading file..."):
+                try:
+                    upload_file(file=uploaded_file, folder_name=user["Name"])
+                    st.sidebar.success("File uploaded successfully!")
+                except:
+                    st.sidebar.error("File upload failed")
+            os.remove(f"temp/{uploaded_file.name}")
 
-def entry_page(*args, **kwargs):
+def my_account_sidebar(user):
+    st.title("My Account")
+    with st.expander(label="Update Account Info"):
+        st.text_input(label="Name", value=user["Name"], disabled=True)
+        st.text_input(label="Username", value=user["Username"])
+        st.text_input(label="Password", value=user["Password"], type="password")
+        if st.button(label="Save"):
+            pass
+
+def sidebar(user):
+    my_account_sidebar(user)
+    file_download_sidebar(user)
+    my_files_sidebar(user)
+    my_subs_sidebar(user)
+
+def entry_page(user):
     st.title("Language Hour Entry")
     with st.sidebar:
-        st.header(f"Welcome {kwargs['name']}")
-        account_page(*args, **kwargs)
-        sidebar(*args, **kwargs)
+        st.header(f"Welcome {user['Name']}")
+        sidebar(user)
 
     form = st.form(key="user_form", clear_on_submit=True)
     with form:
         cols = st.columns((2, 1, 1))
-        name = cols[0].text_input(label="Name", value=kwargs['name'], placeholder="Last name", disabled=True)
+        name = cols[0].text_input(label="Name", value=user["Name"], placeholder="Last name", disabled=True)
         hours = cols[1].text_input(label=f"Hours - {sum_hours(name)} submitted")
         date = cols[2].date_input(label="Date")
         listening = cols[0].checkbox(label="Listening")
@@ -199,7 +248,7 @@ def entry_page(*args, **kwargs):
         speaking = cols[0].checkbox(label="Speaking")
         cols = st.columns((2, 1))
         description = cols[0].text_area(label="Description", height=150, placeholder="describe what you did/understood/struggled with\nexample:\nlistened to lvl 2+ passages about politics in Lebanon etc...\nthen answered questions about it and scored 90%. etc")
-        vocab = cols[1].text_area(label="Vocab", height=150, placeholder="list the vocab you learned and/or reviewed\nexample:\nبطيخ - watermelon\nاحتكار - monopoly")
+        vocab = cols[1].text_area(label="Vocab", height=150, placeholder="list the vocab you learned or reviewed:\nبطيخ - watermelon\nاحتكار - monopoly")
         cols = st.columns(2)
         submitted = cols[0].form_submit_button(label="Submit")
 
@@ -210,11 +259,11 @@ def entry_page(*args, **kwargs):
         st.balloons()
 
     expander = st.expander("Show my Language Hour entries")
-    data = get_data(column=None, sheet=kwargs["name"], worksheet=LHT)
+    data = get_data(column=None, sheet=user["Name"], worksheet=LHT)
     with expander:
         st.dataframe(data)
 
-def admin_page(*args, **kwargs):
+def admin_page(user):
     with st.sidebar:
         st.header("Admin Tools")
         with st.expander(label="Add Member"):
@@ -248,39 +297,46 @@ def admin_page(*args, **kwargs):
                 st.selectbox(label="Name", options=lst_data)
                 st.form_submit_button(label="Update Info")
 
-        st.write(f"Go to [Language Score Tracker]({LST_URL})")
-        st.write(f"Go to [Language Hour Tracker]({LHT_URL})")
-        st.write(f"Go to [Google Drive]({DRIVE_URL})")
+        st.write(f"[Language Score Tracker]({LST_URL})")
+        st.write(f"[Language Hour Tracker]({LHT_URL})")
+        st.write(f"[Google Drive]({DRIVE_URL})")
 
-def account_page(*args, **kwargs):
-    st.title("My Account")
-    with st.expander(label="Update Account Info"):
-        st.text_input(label="Name", value=kwargs["name"])
-        st.text_input(label="Username", value=kwargs["username"])
-        st.text_input(label="Password")
-        st.button(label="Save")
-
-def is_admin(name) -> bool:
+def is_admin(user) -> bool:
     df = get_data(column=None, sheet="Members", worksheet=LHT)
-    # check if account has any flags
-    output = df.query(f"Name == '{name}'")["Flags"]
+    output = df.query(f"Name == '{user['Name']}'")["Flags"]
     return True if list(output)[0] is not None else False
 
-def login():
-    user_data = get_data(column=None, sheet="Members", worksheet=LHT)
-    hashed_passwords = stauth.Hasher(user_data["Password"].tolist()).generate()
-    authenticator = stauth.Authenticate(user_data["Name"].tolist(), user_data["Username"].tolist(), hashed_passwords, "lht_cookie", "lht", cookie_expiry_days=30)
-    name, authentication_status, username = authenticator.login("Language Hour Tracker Login", "main")
+def authenticate_user(username, password):
+        users = get_data(column=None, sheet="Members", worksheet=LHT)
+        user = users.loc[users["Username"] == username]
+        if user.empty:
+            st.session_state['authentication_status'] = False
+            return False
+        if password == user["Password"].values:
+            st.session_state['authentication_status'] = True
+            return True, user.to_dict("records")[0]
+        st.session_state['authentication_status'] = False
+        return False
 
-    if authentication_status:
+def login():
+    status = False
+    if st.session_state['authentication_status'] != True:
+        container = st.empty()
+        with container.container():
+            login_form = st.form("Login")
+            login_form.subheader("Login")
+            username = login_form.text_input(label="Username")
+            st.session_state["username"] = username
+            password = login_form.text_input(label="Password", type="password")
+            if login_form.form_submit_button("Login"):
+                status, user = authenticate_user(username, password)
+    if status:
+        container.empty()
         with st.spinner(text="loading..."):
-            entry_page(authenticator=authenticator, name=name, username=username)
-            if is_admin(name):
-                admin_page(authenticator=authenticator, name=name, username=username)
-        authenticator.logout("Logout", location="sidebar")
-    elif authentication_status == False:
-        st.error('Username or password is incorrect')
-    elif authentication_status == None:
-        pass
+            entry_page(user)
+            if is_admin(user):
+                admin_page(user)
+    if status == False or not status:
+        st.error("Could not login. Check username and password.")
 
 login()
