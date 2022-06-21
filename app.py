@@ -299,10 +299,10 @@ def authenticate_user(username, password):
         users = get_data(column=None, sheet="Members", worksheet=LHT)
         user = users.loc[users["Username"] == username]
         if user.empty:
-            return False
+            return
         if password == user["Password"].values:
-            return True, user.to_dict("records")[0]
-        return False
+            return user.to_dict("records")[0]
+        return
 
 def login():
     #status = False
@@ -331,7 +331,7 @@ def login():
     #password = st.text_input(label="Password", type="password")
     #if st.button("Login"):
     #    status, user = authenticate_user(username, password)
-#
+    #
     #if status:
     #    entry_page(user)
     #    if is_admin(user):
@@ -341,7 +341,7 @@ def login():
     hashed_passwords = stauth.Hasher(users["Password"].tolist()).generate()
     authenticator = stauth.Authenticate(users["Name"].tolist(), users["Username"].tolist(), hashed_passwords, "lht_cookie", "lht", cookie_expiry_days=30)
     name, authentication_status, username = authenticator.login("Language Hour Tracker Login", "main")
-    status, user = authenticate_user(username, PASSWORD)
+    user = authenticate_user(username, PASSWORD)
 
     if authentication_status:
         with st.spinner(text="loading..."):
