@@ -3,6 +3,8 @@ import streamlit as st
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from utils import initialize_session_state
+from datetime import datetime
+import ui_elements as uie
 
 
 SERVICE_INFO = st.secrets['service_account']
@@ -23,6 +25,34 @@ st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="c
 credentials = service_account.Credentials.from_service_account_info(info=SERVICE_INFO, scopes=SCOPES)
 sheets_service = build(serviceName="sheets", version="v4", credentials=credentials)
 drive_service = build(serviceName="drive", version="v3", credentials=credentials)
+
+def get_folder_id(folder_name) -> str:
+    query = f"mimeType='application/vnd.google-apps.folder' and name='{folder_name}'"
+    file = drive_service.files().list(q=query, fields="files(id)").execute()
+    return file["files"][0]["id"]
+
+def get_files(folder_name):
+    folder_id = get_folder_id(folder_name)
+    query = f"parents = '{folder_id}'"
+    response = drive_service.files().list(q=query).execute()
+    files = response.get("files")
+    nextPageToken = response.get("nextPageToken")
+    while nextPageToken:
+        response = drive_service.files().list(q=query).execute()
+        files.extend(response.get("files"))
+    return files
+
+def calculate_hours_done_this_month(name):
+    data = get_data(column=None, worksheet_id=LHT_ID, sheet_name=name)
+    this_month = datetime.now().date().month
+    data = data[['Date', 'Hours']]
+    hours = sum([int(d[1]) for d in data.values if int(d[0][5:7]) == this_month])
+    return hours
+
+def get_subs(name) -> list:
+    df = get_data(column=None, sheet_name="Main", worksheet_id=LST_ID, range="A:K")
+    subs = df[["Name", "Supervisor"]].loc[df["Supervisor"] == name]
+    return subs.to_dict('records')
 
 def add_entry(worksheet_id, sheet_name, data:list, range="A:K"):
     sheets_service.spreadsheets().values().append(
@@ -77,7 +107,7 @@ def authenticate(username, password) -> bool:
 
 def login():
     if not st.session_state.logged_in:
-        with st.form('Login'):
+        with st.form('Language Hour Login'):
             st.subheader('Login')
             username = st.text_input('Username').lower()
             password = st.text_input('Password', type='password')
@@ -85,8 +115,11 @@ def login():
             if login:
                 status = authenticate(username, password)
 
-
 def sidebar():
+    def show_dataframe(name):
+        data = get_data(column=None, worksheet_id=LHT_ID, sheet_name=name)
+        st.dataframe(data, width=300)
+
     with st.sidebar:
         st.subheader(f'Welcome {st.session_state.user["Name"]}!')
         with st.expander('Upload/Download Files'):
@@ -98,6 +131,24 @@ def sidebar():
                         st.sidebar.error('could not upload file :(')
                         raise e
 
+        with st.expander('My Troops'):
+            subs = get_subs(st.session_state.user['Name'])
+            for s in subs:
+                cols = st.columns((4, 1))
+                if cols[0].button(s['Name']):
+                    show_dataframe(s['Name'])
+                cols[1].write(f'{calculate_hours_done_this_month(s["Name"])} hrs')
+        
+        #with st.expander('My Files'):
+        #    files = get_files(st.session_state.user['Name'])
+        #    st.write('coming SOON™')
+        #    return
+        #    if not files:
+        #        st.sidebar.warning('no files')
+        #    for f in files:
+        #        if st.button(f['name'], key=f['id']):
+        #            uie.display_file(f['name'])
+
 def main_page():
     with st.form('Entry'):
         st.subheader('Language Hour Entry')
@@ -107,7 +158,7 @@ def main_page():
         date = cols[1].date_input("Date")
         cols = st.columns((2, 1))
         mods = cols[0].multiselect("Activity", options=['Listening', 'Reading', 'Speaking', 'Vocab'])
-        hours = cols[1].text_input(f"Hours - XX submitted")
+        hours = cols[1].text_input(f"Hours - {calculate_hours_done_this_month(user['Name'])} hrs completed")
         cols = st.columns((2, 1))
         desc = cols[0].text_area("Description", height=150, placeholder='be detailed!')
         vocab = cols[1].text_area("Vocab", height=150, placeholder='list vocab you learned/reviewed')
@@ -138,8 +189,11 @@ def main_page():
                 raise e
 
     with st.expander('Show my Language Hour history'):
-        data = get_data(column=None, worksheet_id=LHT_ID, sheet_name=user['Name'])
-        st.dataframe(data, width=680)
+        try:
+            data = get_data(column=None, worksheet_id=LHT_ID, sheet_name=user['Name'])
+            st.dataframe(data, width=680)
+        except:
+            st.warning('could not load history')
 
 if st.session_state.logged_in:
     with st.spinner('loading...'):
