@@ -260,6 +260,8 @@ if st.session_state.logged_in:
                 adminbar()
             if 'dev' in flags:
                 devbar()
+            if 'sg' in flags:
+                st.sidebar.header('🦢 Silly Goose')
 else:
     login()
 
