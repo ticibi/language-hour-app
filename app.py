@@ -29,6 +29,7 @@ credentials = service_account.Credentials.from_service_account_info(info=SERVICE
 sheets_service = build(serviceName="sheets", version="v4", credentials=credentials)
 drive_service = build(serviceName="drive", version="v3", credentials=credentials)
 
+
 def get_folder_id(folder_name) -> str:
     query = f"mimeType='application/vnd.google-apps.folder' and name='{folder_name}'"
     file = drive_service.files().list(q=query, fields="files(id)").execute()
@@ -47,12 +48,49 @@ def get_files(folder_name):
 
 def calculate_hours_done_this_month(name):
     data = get_data(column=None, worksheet_id=LHT_ID, sheet_name=name)
-    if data is None or not data:
+    if data is None:
         return '?'
     this_month = datetime.now().date().month
     data = data[['Date', 'Hours']]
     hours = sum([int(d[1]) for d in data.values if int(d[0][5:7]) == this_month])
     return hours
+
+def calculate_hours_required(name):
+    def check(score:str):
+        s = score
+        output = 0.0
+        if '+' in score:
+            output += 0.5
+            s = s.replace('+', '')
+        output += float(s)
+        return output
+
+    table = {
+        '5.5': 2,
+        '5.0': 4,
+        '4.5': 6,
+        '4.0': 8,
+    }
+    data = get_data(column=None, worksheet_id=LST_ID, sheet_name='Main')
+    if data is None:
+        return '?'
+    try:
+        data = data.query(f'Name == "{name}"')[['CLang', 'CL - Listening', 'MSA - Listening', 'MSA - Reading']].values.tolist()[0]
+    except:
+        return '?'
+    total = 0.0
+    match data[0]:
+        case 'AD':
+            total = sum([check(data[2]), check(data[3])])
+        case default:
+            total = sum([check(data[1]), check(data[3])])
+    if total < 4:
+        return 12
+    elif total >= 6:
+        return 0
+    else:
+        return table[str(total)]
+    
 
 def get_subs(name) -> list:
     df = get_data(column=None, sheet_name="Main", worksheet_id=LST_ID, range="A:K")
@@ -77,8 +115,8 @@ def get_data(column, worksheet_id, sheet_name, range="A:K"):
         df = pd.DataFrame(values["values"])
         df.columns = df.iloc[0]
         df = df[1:]
-    except:
-        st.error('could not get data')
+    except Exception as e:
+        print(e)
         return None
     return df[column].tolist() if column is not None else df
 
@@ -195,10 +233,12 @@ def sidebar():
         with st.expander('My Troops'):
             subs = get_subs(st.session_state.user['Name'])
             for s in subs:
-                cols = st.columns((4, 1))
+                cols = st.columns((5, 2))
                 if cols[0].button(s['Name'], help='click to show history'):
                     show_dataframe(s['Name'])
-                cols[1].write(f'{calculate_hours_done_this_month(s["Name"])} hrs')
+                hrs_done = calculate_hours_done_this_month(s["Name"])
+                hrs_req = calculate_hours_required(s["Name"])
+                cols[1].write(f'{hrs_done}/{hrs_req} hrs')
         
         #with st.expander('My Files'):
         #    files = get_files(st.session_state.user['Name'])
@@ -220,7 +260,8 @@ def main_page():
         cols = st.columns((2, 1))
         mods = cols[0].multiselect("Activity", options=['Listening', 'Reading', 'Speaking', 'Vocab'])
         hours_done = calculate_hours_done_this_month(user['Name'])
-        hours = cols[1].text_input(f"Hours - {hours_done} hrs completed")
+        hours_req = calculate_hours_required(user['Name'])
+        hours = cols[1].text_input(f"Hours - {hours_done}/{hours_req} hrs completed")
         cols = st.columns((2, 1))
         desc = cols[0].text_area("Description", height=150, placeholder='be detailed!')
         vocab = cols[1].text_area("Vocab", height=150, placeholder='list vocab you learned/reviewed')
