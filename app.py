@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 from google.oauth2 import service_account
 from googleapiclient.discovery import build, MediaFileUpload
-from utils import initialize_session_state
+from utils import initialize_session_state, to_excel
 from datetime import datetime
 import os
 
@@ -21,7 +21,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive.metadata",
 ]
 
-session_vars = ['logged_in', 'user', 'admin', 'dev']
+session_vars = ['logged_in', 'user', 'admin', 'dev',]
 initialize_session_state(session_vars)
 
 st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
@@ -29,6 +29,27 @@ credentials = service_account.Credentials.from_service_account_info(info=SERVICE
 sheets_service = build(serviceName="sheets", version="v4", credentials=credentials)
 drive_service = build(serviceName="drive", version="v3", credentials=credentials)
 
+def get_monthly_hours():
+    output = []
+    this_month = datetime.now().date().month
+    users = get_data(column='Name', worksheet_id=LHT_ID, sheet_name='Members')
+    for user in users:
+        total_hours = 0
+        data= None
+        try:
+            data = get_data(column=None, worksheet_id=LHT_ID, sheet_name=user)
+        except:
+            continue
+        if data is None:
+            output.append([user, 0])
+        else:
+            for i, row in data.iterrows():
+                date = row['Date']
+                hours = row['Hours']
+                if int(date[5:7]) == this_month:
+                    total_hours += int(hours)
+            output.append([user, total_hours])
+    return output
 
 def get_folder_id(folder_name) -> str:
     query = f"mimeType='application/vnd.google-apps.folder' and name='{folder_name}'"
@@ -91,7 +112,6 @@ def calculate_hours_required(name):
         return 0
     else:
         return table[str(total)]
-    
 
 def get_subs(name) -> list:
     df = get_data(column=None, sheet_name="Main", worksheet_id=LST_ID, range="A:K")
@@ -204,7 +224,6 @@ def adminbar():
                 submit = st.form_submit_button('Add Member')
                 if submit:
                     pass
-
         st.write(f"[Language Score Tracker]({LST_URL})")
         st.write(f"[Language Hour Tracker]({LHT_URL})")
         st.write(f"[Google Drive]({DRIVE_URL})")
@@ -224,6 +243,7 @@ def sidebar():
         st.subheader(f'Welcome {st.session_state.user["Name"]}!')
         with st.expander('Upload/Download Files'):
             file = st.file_uploader('Upload 623A or ILTP', type=['pdf', 'txt', 'docx'])
+            st.write('note: be sure to submit an entry annotating a 623 upload with the number of hours')
             if file:
                 with st.spinner('uploading...'):
                     try:
@@ -242,7 +262,8 @@ def sidebar():
                     show_dataframe(s['Name'])
                 hrs_done = calculate_hours_done_this_month(s["Name"])
                 hrs_req = calculate_hours_required(s["Name"])
-                cols[1].write(f'{hrs_done}/{hrs_req} hrs')
+                color = 'green' if hrs_done >= hrs_req else 'red'
+                cols[1].markdown(f'<p style="color:{color}">{hrs_done}/{hrs_req} hrs</p>', unsafe_allow_html=True)
         
         #with st.expander('My Files'):
         #    files = get_files(st.session_state.user['Name'])
@@ -271,6 +292,9 @@ def main_page():
         vocab = cols[1].text_area("Vocab", height=150, placeholder='list vocab you learned/reviewed')
         cols = st.columns(2)
         if cols[0].form_submit_button("Submit"):
+            #if not hours.replace('.', '').isdigit():
+            #    st.warning('you need study for more than 0 hours...')
+            #    return
             if not hours.isdigit():
                 st.warning('you need study for more than 0 hours...')
                 return
