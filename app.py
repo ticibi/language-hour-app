@@ -207,7 +207,7 @@ def main_page():
         vocab = cols[1].text_area("Vocab", height=150, placeholder='list vocab you learned/reviewed')
         cols = st.columns(2)
         if cols[0].form_submit_button("Submit"):
-            if not hours.isdigit():
+            if not hours.isdigit() or hours <=0:
                 st.warning('you need study for more than 0 hours...')
                 return
             if not desc:
