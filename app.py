@@ -46,7 +46,10 @@ def get_files(folder_name):
     return files
 
 def calculate_hours_done_this_month(name):
-    data = get_data(column=None, worksheet_id=LHT_ID, sheet_name=name)
+    try:
+        data = get_data(column=None, worksheet_id=LHT_ID, sheet_name=name)
+    except:
+        st.error('could not calculate hours')
     this_month = datetime.now().date().month
     data = data[['Date', 'Hours']]
     hours = sum([int(d[1]) for d in data.values if int(d[0][5:7]) == this_month])
@@ -66,14 +69,18 @@ def add_entry(worksheet_id, sheet_name, data:list, range="A:K"):
     ).execute()
 
 def get_data(column, worksheet_id, sheet_name, range="A:K"):
-    values = (sheets_service.spreadsheets().values().get(
-        spreadsheetId=worksheet_id,
-        range=f"{sheet_name}!{range}",
-        ).execute()
-    )
-    df = pd.DataFrame(values["values"])
-    df.columns = df.iloc[0]
-    df = df[1:]
+    try:
+        values = (sheets_service.spreadsheets().values().get(
+            spreadsheetId=worksheet_id,
+            range=f"{sheet_name}!{range}",
+            ).execute()
+        )
+        df = pd.DataFrame(values["values"])
+        df.columns = df.iloc[0]
+        df = df[1:]
+    except:
+        st.error('could not get data')
+        return None
     return df[column].tolist() if column is not None else df
 
 def upload_file(file, folder_name):
