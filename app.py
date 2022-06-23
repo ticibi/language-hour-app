@@ -1,16 +1,20 @@
+from tabnanny import check
+from types import NoneType
 import pandas as pd
 import streamlit as st
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from utils import initialize_session_state
 from datetime import datetime
-import ui_elements as uie
 
 
 SERVICE_INFO = st.secrets['service_account']
 LHT_ID = st.secrets['LHT_ID']
 LST_ID = st.secrets['LST_ID']
 FOLDER_ID = st.secrets['FOLDER_ID']
+LST_URL = st.secrets['LST_URL']
+LHT_URL = st.secrets['LHT_URL']
+DRIVE_URL = st.secrets['DRIVE_URL']
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
@@ -18,7 +22,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive.metadata",
 ]
 
-session_vars = ['logged_in', 'user']
+session_vars = ['logged_in', 'user', 'admin', 'dev']
 initialize_session_state(session_vars)
 
 st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
@@ -73,8 +77,15 @@ def get_data(column, worksheet_id, sheet_name, range="A:K"):
     df = df[1:]
     return df[column].tolist() if column is not None else df
 
-def check_flags(username):
-    pass
+def check_flags():
+    data = get_data(column=None, worksheet_id=LHT_ID, sheet_name='Members')
+    flags = data.query(f'Name == "{st.session_state.user["Name"]}"')['Flags']
+    flags = flags.tolist()[0]
+    if flags != None:
+        flags = flags.strip()
+        flags = flags.split(',')
+        return flags
+    return None
 
 def authenticate(username, password) -> bool:
     data = None
@@ -88,22 +99,21 @@ def authenticate(username, password) -> bool:
             user = data.loc[data['Username'] == username]
         except:
             st.error('incorrect username or password :(')
-            return False
     
         user = user.to_dict('records')[0]
         if user['Password'] == password:
             user.pop('Password')
-            st.success('logged in successfully!')
             st.session_state.user = user
             st.session_state.logged_in = True
-            return True
         else:
             st.error('incorrect username or password')
-            return False
     else:
         st.session_state.user = None
         st.session_state.logged_in = False
-        return False
+
+def logout():
+    for state in st.session_state:
+        st.session_state[state] = None
 
 def login():
     if not st.session_state.logged_in:
@@ -113,7 +123,40 @@ def login():
             password = st.text_input('Password', type='password')
             login = st.form_submit_button('Login')
             if login:
-                status = authenticate(username, password)
+                authenticate(username, password)
+
+def adminbar():
+    st.sidebar.subheader('Admin')
+    with st.sidebar:
+        with st.expander('Add Member'):
+            with st.form('Add Member'):
+                data = get_data(column=None, worksheet_id=LST_ID, sheet_name='Main')
+                name = st.text_input(label="Name", placeholder="Last, First")
+                username = st.text_input(label="Username", placeholder="jsmith")
+                clang = st.selectbox(label="CLang", options=["AP", "AD", "DG",])
+                iltp = st.text_input(label="ILTP Status", placeholder="ILTP or RLTP")
+                slte = st.date_input(label="SLTE Date")
+                dlpt = st.date_input(label="DLPT Date")
+                cll = st.text_input(label="CL - Listening")
+                msal = st.text_input(label="MSA - Listening")
+                msar = st.text_input(label="MSA - Reading")
+                dialects = st.text_input(label="Dialects", placeholder="with only score of 2 or higher")
+                mentor = st.text_input(label="Mentor")
+                supe = st.selectbox(label="Supervisor", options=[])
+                flags = st.multiselect(label="Flags", options=['admin', 'dev'])
+                submit = st.form_submit_button('Add Member')
+                if submit:
+                    pass
+
+        st.write(f"[Language Score Tracker]({LST_URL})")
+        st.write(f"[Language Hour Tracker]({LHT_URL})")
+        st.write(f"[Google Drive]({DRIVE_URL})")
+
+def devbar():
+    st.sidebar.subheader('Developer')
+    with st.sidebar:
+        with st.expander(''):
+            st.write('meow')
 
 def sidebar():
     def show_dataframe(name):
@@ -135,7 +178,7 @@ def sidebar():
             subs = get_subs(st.session_state.user['Name'])
             for s in subs:
                 cols = st.columns((4, 1))
-                if cols[0].button(s['Name']):
+                if cols[0].button(s['Name'], help='click to show history'):
                     show_dataframe(s['Name'])
                 cols[1].write(f'{calculate_hours_done_this_month(s["Name"])} hrs')
         
@@ -199,6 +242,12 @@ if st.session_state.logged_in:
     with st.spinner('loading...'):
         main_page()
         sidebar()
+        flags = check_flags()
+        if flags is not None:
+            if 'admin' in flags:
+                adminbar()
+            if 'dev' in flags:
+                devbar()
 else:
     login()
 
