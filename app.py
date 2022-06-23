@@ -46,10 +46,8 @@ def get_files(folder_name):
     return files
 
 def calculate_hours_done_this_month(name):
-    try:
-        data = get_data(column=None, worksheet_id=LHT_ID, sheet_name=name)
-    except:
-        st.error('could not calculate hours')
+    data = get_data(column=None, worksheet_id=LHT_ID, sheet_name=name)
+    if data is None or not data:
         return '?'
     this_month = datetime.now().date().month
     data = data[['Date', 'Hours']]
