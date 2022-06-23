@@ -50,6 +50,7 @@ def calculate_hours_done_this_month(name):
         data = get_data(column=None, worksheet_id=LHT_ID, sheet_name=name)
     except:
         st.error('could not calculate hours')
+        return '?'
     this_month = datetime.now().date().month
     data = data[['Date', 'Hours']]
     hours = sum([int(d[1]) for d in data.values if int(d[0][5:7]) == this_month])
@@ -220,7 +221,8 @@ def main_page():
         date = cols[1].date_input("Date")
         cols = st.columns((2, 1))
         mods = cols[0].multiselect("Activity", options=['Listening', 'Reading', 'Speaking', 'Vocab'])
-        hours = cols[1].text_input(f"Hours - {calculate_hours_done_this_month(user['Name'])} hrs completed")
+        hours_done = calculate_hours_done_this_month(user['Name'])
+        hours = cols[1].text_input(f"Hours - {hours_done} hrs completed")
         cols = st.columns((2, 1))
         desc = cols[0].text_area("Description", height=150, placeholder='be detailed!')
         vocab = cols[1].text_area("Vocab", height=150, placeholder='list vocab you learned/reviewed')
