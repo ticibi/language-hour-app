@@ -56,6 +56,7 @@ def calculate_hours_done_this_month(name):
     return hours
 
 def calculate_hours_required(name):
+    # check for dialect scores
     def check(score:str):
         s = score
         output = 0.0
@@ -152,8 +153,11 @@ def authenticate(username, password) -> bool:
             user = data.loc[data['Username'] == username]
         except:
             st.error('incorrect username or password :(')
-    
-        user = user.to_dict('records')[0]
+        try:
+            user = user.to_dict('records')[0]
+        except:
+            st.error('user does not exist')
+            return
         if user['Password'] == password:
             user.pop('Password')
             st.session_state.user = user
