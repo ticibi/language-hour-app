@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 from google.oauth2 import service_account
 from googleapiclient.discovery import build, MediaFileUpload
-from utils import initialize_session_state, to_excel
+from utils import initialize_session_state
 from datetime import datetime
 import os
 
