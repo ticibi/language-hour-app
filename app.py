@@ -1,11 +1,10 @@
-from tabnanny import check
-from types import NoneType
 import pandas as pd
 import streamlit as st
 from google.oauth2 import service_account
-from googleapiclient.discovery import build
+from googleapiclient.discovery import build, MediaFileUpload
 from utils import initialize_session_state
 from datetime import datetime
+import os
 
 
 SERVICE_INFO = st.secrets['service_account']
@@ -76,6 +75,16 @@ def get_data(column, worksheet_id, sheet_name, range="A:K"):
     df.columns = df.iloc[0]
     df = df[1:]
     return df[column].tolist() if column is not None else df
+
+def upload_file(file, folder_name):
+    with open(f"temp/{file.name}", "wb") as f:
+        f.write(file.getbuffer())
+    file_metadata = {
+            "name": f"{file.name}",
+            "parents": [get_folder_id(folder_name)],
+        }
+    media = MediaFileUpload(f"temp/{file.name}", mimetype="*/*")
+    drive_service.files().create(body=file_metadata, media_body=media, fields="id").execute()
 
 def check_flags():
     data = get_data(column=None, worksheet_id=LHT_ID, sheet_name='Members')
@@ -166,13 +175,16 @@ def sidebar():
     with st.sidebar:
         st.subheader(f'Welcome {st.session_state.user["Name"]}!')
         with st.expander('Upload/Download Files'):
-            if st.file_uploader('Upload 623A or ILTP', type=['pdf', 'txt', 'docx']):
+            file = st.file_uploader('Upload 623A or ILTP', type=['pdf', 'txt', 'docx'])
+            if file:
                 with st.spinner('uploading...'):
                     try:
-                        pass
+                        upload_file(file, folder_name=st.session_state.user['Name'])
+                        st.sidebar.success('file uploaded')
                     except Exception as e:
                         st.sidebar.error('could not upload file :(')
                         raise e
+                os.remove(f"temp/{file.name}")
 
         with st.expander('My Troops'):
             subs = get_subs(st.session_state.user['Name'])
@@ -207,7 +219,7 @@ def main_page():
         vocab = cols[1].text_area("Vocab", height=150, placeholder='list vocab you learned/reviewed')
         cols = st.columns(2)
         if cols[0].form_submit_button("Submit"):
-            if not hours.isdigit() or hours <=0:
+            if not hours.isdigit():
                 st.warning('you need study for more than 0 hours...')
                 return
             if not desc:
