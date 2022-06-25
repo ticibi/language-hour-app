@@ -1,3 +1,4 @@
+from urllib.error import HTTPError
 import pandas as pd
 import streamlit as st
 from google.oauth2 import service_account
@@ -5,6 +6,7 @@ from googleapiclient.discovery import build, MediaFileUpload
 from utils import initialize_session_state
 from datetime import datetime
 import os
+import ui_elements as uie
 
 
 SERVICE_INFO = st.secrets['service_account']
@@ -21,7 +23,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive.metadata",
 ]
 
-session_vars = ['logged_in', 'user', 'admin', 'dev',]
+session_vars = ['logged_in', 'user', 'admin', 'dev', 'sg', 'save', 'subs', 'entries', 'files', 'members', 'main']
 initialize_session_state(session_vars)
 
 st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
@@ -29,7 +31,11 @@ credentials = service_account.Credentials.from_service_account_info(info=SERVICE
 sheets_service = build(serviceName="sheets", version="v4", credentials=credentials)
 drive_service = build(serviceName="drive", version="v3", credentials=credentials)
 
-def get_monthly_hours():
+def add_log(description):
+    pass
+    #add_entry(worksheet_id=LHT_ID, sheet_name='Log', data=description, range='A')
+
+def get_all_monthly_hours():
     output = []
     this_month = datetime.now().date().month
     users = get_data(column='Name', worksheet_id=LHT_ID, sheet_name='Members')
@@ -51,13 +57,13 @@ def get_monthly_hours():
             output.append([user, total_hours])
     return output
 
-def get_folder_id(folder_name) -> str:
-    query = f"mimeType='application/vnd.google-apps.folder' and name='{folder_name}'"
+def get_folder_id(name) -> str:
+    query = f"mimeType='application/vnd.google-apps.folder' and name='{name}'"
     file = drive_service.files().list(q=query, fields="files(id)").execute()
     return file["files"][0]["id"]
 
-def get_files(folder_name):
-    folder_id = get_folder_id(folder_name)
+def get_files(name):
+    folder_id = get_folder_id(name)
     query = f"parents = '{folder_id}'"
     response = drive_service.files().list(q=query).execute()
     files = response.get("files")
@@ -93,7 +99,7 @@ def calculate_hours_required(name):
         '4.5': 6,
         '4.0': 8,
     }
-    data = get_data(column=None, worksheet_id=LST_ID, sheet_name='Main')
+    data = st.session_state.main
     if data is None:
         return '?'
     try:
@@ -141,25 +147,33 @@ def get_data(column, worksheet_id, sheet_name, range="A:K"):
         return None
     return df[column].tolist() if column is not None else df
 
-def upload_file(file, folder_name):
+def upload_file(file, folder):
+    '''upload file onto the google drive into the destination folder'''
     with open(f"temp/{file.name}", "wb") as f:
         f.write(file.getbuffer())
     file_metadata = {
             "name": f"{file.name}",
-            "parents": [get_folder_id(folder_name)],
+            "parents": [get_folder_id(folder)],
         }
     media = MediaFileUpload(f"temp/{file.name}", mimetype="*/*")
     drive_service.files().create(body=file_metadata, media_body=media, fields="id").execute()
 
-def check_flags():
-    data = get_data(column=None, worksheet_id=LHT_ID, sheet_name='Members')
+def check_flags() -> list:
+    '''returns list of flags'''
+    data = st.session_state.members
     flags = data.query(f'Name == "{st.session_state.user["Name"]}"')['Flags']
     flags = flags.tolist()[0]
     if flags != None:
         flags = flags.strip()
         flags = flags.split(',')
+        if 'admin' in flags:
+            st.session_state.admin = True
+        if 'dev' in flags:
+            st.session_state.dev = True
+        if 'sg' in flags:
+            st.session_state.sg = True
         return flags
-    return None
+    return []
 
 def authenticate(username, password) -> bool:
     data = None
@@ -189,8 +203,8 @@ def authenticate(username, password) -> bool:
         st.session_state.logged_in = False
 
 def logout():
-    for state in st.session_state:
-        st.session_state[state] = None
+    for var in session_vars:
+        st.session_state[var] = None
 
 def login():
     if not st.session_state.logged_in:
@@ -207,19 +221,19 @@ def adminbar():
     with st.sidebar:
         with st.expander('Add Member'):
             with st.form('Add Member'):
-                data = get_data(column=None, worksheet_id=LST_ID, sheet_name='Main')
+                data = st.session_state.main
                 name = st.text_input(label="Name", placeholder="Last, First")
                 username = st.text_input(label="Username", placeholder="jsmith")
                 clang = st.selectbox(label="CLang", options=["AP", "AD", "DG",])
-                iltp = st.text_input(label="ILTP Status", placeholder="ILTP or RLTP")
+                iltp = st.selectbox(label="ILTP Status", options=['ILTP', 'RLTP', 'NONE'])
                 slte = st.date_input(label="SLTE Date")
                 dlpt = st.date_input(label="DLPT Date")
                 cll = st.text_input(label="CL - Listening")
                 msal = st.text_input(label="MSA - Listening")
                 msar = st.text_input(label="MSA - Reading")
-                dialects = st.text_input(label="Dialects", placeholder="with only score of 2 or higher")
+                dialects = st.text_input(label="Dialects", placeholder="only score of 2 or higher")
                 mentor = st.text_input(label="Mentor")
-                supe = st.selectbox(label="Supervisor", options=[])
+                supe = st.selectbox(label="Supervisor", options=[x for x in st.session_state.members['Name'].tolist()])
                 flags = st.multiselect(label="Flags", options=['admin', 'dev'])
                 submit = st.form_submit_button('Add Member')
                 if submit:
@@ -231,8 +245,33 @@ def adminbar():
 def devbar():
     st.sidebar.subheader('Developer')
     with st.sidebar:
-        with st.expander(''):
+        with st.expander('+'):
             st.write('meow')
+
+def get_user_info_index(name):
+    df = st.session_state.members
+    index = df.loc[df['Name'] ==  name].index[0]
+    return index + 1
+
+def update_password(index: int, sheet_name, values):
+    body = {'values': values}
+    try:
+        response = sheets_service.spreadsheets().values().update(
+            spreadsheetId=LHT_ID, range=f'{sheet_name}!C{index}', valueInputOption='USER_ENTERED', body=body,
+        ).execute()
+    except HTTPError as e:
+        st.warning('error')
+        return e
+
+def update_username(index, sheet_name, values):
+    body = {'values': values}
+    try:
+        response = sheets_service.spreadsheets().values().update(
+            spreadsheetId=LHT_ID, range=f'{sheet_name}!B{index}', valueInputOption='USER_ENTERED', body=body,
+        ).execute()
+    except HTTPError as e:
+        st.warning('error')
+        return e
 
 def sidebar():
     def show_dataframe(name):
@@ -240,22 +279,44 @@ def sidebar():
         st.dataframe(data, width=300)
 
     with st.sidebar:
-        st.subheader(f'Welcome {st.session_state.user["Name"]}!')
+        welcome_name = '🦢 Silly Goose' if st.session_state.sg else st.session_state.user['Name']
+        st.subheader(f'Welcome {welcome_name}!')
+
+        #with st.expander('My Info'):
+        #    st.text_input('Name', value=st.session_state.user['Name'], disabled=True)
+        #    username = st.text_input('Username', value=st.session_state.user['Username'])
+        #    password = st.text_input('Password', placeholder='enter a new password')
+        #    button = st.button('Save')
+        #    if button:
+        #        index = get_user_info_index(st.session_state.user['Name'])
+        #        try:
+        #            if username != '':
+        #                update_username(index, sheet_name='Members', values=[[username]])
+        #                del username
+        #            if password != '':
+        #                update_password(index, sheet_name='Members', values=[[password]])
+        #                del password
+        #            st.info('info updated')
+        #        except Exception as e:
+        #            st.warning('failed to update')
+        #            print(e)
+#
         with st.expander('Upload/Download Files'):
             file = st.file_uploader('Upload 623A or ILTP', type=['pdf', 'txt', 'docx'])
             st.write('note: be sure to submit an entry annotating a 623 upload with the number of hours')
             if file:
                 with st.spinner('uploading...'):
                     try:
-                        upload_file(file, folder_name=st.session_state.user['Name'])
+                        upload_file(file, folder=st.session_state.user['Name'])
                         st.sidebar.success('file uploaded')
+                        add_log(f'{st.session_state.user["Username"]} uploaded a file')
                     except Exception as e:
                         st.sidebar.error('could not upload file :(')
                         raise e
                 os.remove(f"temp/{file.name}")
 
         with st.expander('My Troops'):
-            subs = get_subs(st.session_state.user['Name'])
+            subs = st.session_state.subs
             for s in subs:
                 cols = st.columns((5, 2))
                 if cols[0].button(s['Name'], help='click to show history'):
@@ -264,16 +325,15 @@ def sidebar():
                 hrs_req = calculate_hours_required(s["Name"])
                 color = 'green' if hrs_done >= hrs_req else 'red'
                 cols[1].markdown(f'<p style="color:{color}">{hrs_done}/{hrs_req} hrs</p>', unsafe_allow_html=True)
-        
+
         #with st.expander('My Files'):
-        #    files = get_files(st.session_state.user['Name'])
-        #    st.write('coming SOON™')
-        #    return
+        #    files = st.session_state.files
         #    if not files:
         #        st.sidebar.warning('no files')
         #    for f in files:
         #        if st.button(f['name'], key=f['id']):
-        #            uie.display_file(f['name'])
+        #            pass
+        #            #uie.display_file(f['name'])
 
 def main_page():
     with st.form('Entry'):
@@ -283,7 +343,7 @@ def main_page():
         cols[0].text_input("Name", value=user['Name'], placeholder="Last, First", disabled=True)
         date = cols[1].date_input("Date")
         cols = st.columns((2, 1))
-        mods = cols[0].multiselect("Activity", options=['Listening', 'Reading', 'Speaking', 'Vocab'])
+        mods = cols[0].multiselect("Activity", options=['Listening', 'Reading', 'Speaking', 'Vocab', 'SLTE'])
         hours_done = calculate_hours_done_this_month(user['Name'])
         hours_req = calculate_hours_required(user['Name'])
         hours = cols[1].text_input(f"Hours - {hours_done}/{hours_req} hrs completed")
@@ -315,6 +375,7 @@ def main_page():
                     )
                 st.success('entry submitted!')
                 st.balloons()
+                add_log(f'{st.session_state.user["Username"]} submitted {hours} hours')
             except Exception as e:
                 st.error('could not submit entry :(')
                 raise e
@@ -326,18 +387,23 @@ def main_page():
         except:
             st.warning('could not load history')
 
+def preload_user_data():
+    st.session_state.subs = get_subs(st.session_state.user['Name'])
+    st.session_state.files = get_files(st.session_state.user['Name'])
+    st.session_state.members = get_data(column=None, worksheet_id=LHT_ID, sheet_name='Members', range='A:D')
+    st.session_state.main = get_data(column=None, worksheet_id=LST_ID, sheet_name='Main')
+
 if st.session_state.logged_in:
     with st.spinner('loading...'):
+        preload_user_data()
+        check_flags()
         main_page()
         sidebar()
-        flags = check_flags()
-        if flags is not None:
-            if 'admin' in flags:
-                adminbar()
-            if 'dev' in flags:
-                devbar()
-            if 'sg' in flags:
-                st.sidebar.header('🦢 Silly Goose')
+        if st.session_state.admin:
+            adminbar()
+        if st.session_state.dev:
+            devbar()
+        #st.sidebar.button('Logout', on_click=logout(), key='logout')
 else:
     login()
 
