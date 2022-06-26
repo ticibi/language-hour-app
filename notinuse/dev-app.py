@@ -460,3 +460,120 @@ entry_page(user_data)
 #elif authentication_status == None:
 #    pass
 #
+
+def get_files(name):
+    folder_id = get_folder_id(name)
+    query = f"parents = '{folder_id}'"
+    response = drive_service.files().list(q=query).execute()
+    files = response.get("files")
+    nextPageToken = response.get("nextPageToken")
+    while nextPageToken:
+        response = drive_service.files().list(q=query).execute()
+        files.extend(response.get("files"))
+    return files
+
+def get_folder_id(name) -> str:
+    query = f"mimeType='application/vnd.google-apps.folder' and name='{name}'"
+    file = drive_service.files().list(q=query, fields="files({})").execute()
+    return file["files"][0]["id"]
+
+def upload_file(file, folder):
+    '''upload file onto the google drive into the destination folder'''
+    with open(f"temp/{file.name}", "wb") as f:
+        f.write(file.getbuffer())
+    file_metadata = {
+            "name": f"{file.name}",
+            "parents": [get_folder_id(folder)],
+        }
+    media = MediaFileUpload(f"temp/{file.name}", mimetype="*/*")
+    drive_service.files().create(body=file_metadata, media_body=media, fields="id").execute()
+
+def add_entry(worksheet_id, sheet_name, data:list, range="A:K"):
+    service.sheets.spreadsheets().values().append(
+        spreadsheetId=worksheet_id,
+        range=f"{sheet_name}!{range}",
+        body=dict(values=data),
+        valueInputOption="USER_ENTERED",
+    ).execute()
+
+def get_data(column, worksheet_id, sheet_name, range="A:K"):
+    try:
+        values = (service.sheets.spreadsheets().values().get(
+            spreadsheetId=worksheet_id,
+            range=f"{sheet_name}!{range}",
+            ).execute()
+        )
+        df = pd.DataFrame(values["values"])
+        df.columns = df.iloc[0]
+        df = df[1:]
+    except Exception as e:
+        print(e)
+        return None
+    return df[column].tolist() if column is not None else df
+
+def test_get_data(columns, worksheet_id, sheet_name, range='A:D'):
+    values = (service.sheets.spreadsheets().values().get(
+        spreadsheetId=worksheet_id,
+        range=f"{sheet_name}!{range}",
+        ).execute()
+    )
+    df = pd.DataFrame(values['values'])
+    df.columns = df.iloc[0]
+    df = df[1:]
+    return df.get(columns)
+
+x = test_get_data(columns=['Name', 'Username'], worksheet_id=LHT_ID, sheet_name='Members', range='A:D')
+
+def calculate_hours_required(name):
+    # check for dialect scores
+    def check(score:str):
+        s = score
+        output = 0.0
+        if '+' in score:
+            output += 0.5
+            s = s.replace('+', '')
+        output += float(s)
+        return output
+
+    table = {
+        '5.5': 2,
+        '5.0': 4,
+        '4.5': 6,
+        '4.0': 8,
+    }
+    data = st.session_state.main
+    if data is None:
+        return 0
+    try:
+        data = data.query(f'Name == "{name}"')[['CLang', 'CL - Listening', 'MSA - Listening', 'MSA - Reading']].values.tolist()[0]
+    except:
+        return 0
+    total = 0.0
+    match data[0]:
+        case 'AD':
+            total = sum([check(data[2]), check(data[3])])
+        case _:
+            total = sum([check(data[1]), check(data[3])])
+    if total < 4:
+        return 12
+    elif total >= 6:
+        return 0
+    else:
+        return table[str(total)]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

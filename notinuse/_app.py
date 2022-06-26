@@ -1,10 +1,8 @@
-from io import BytesIO
 from urllib.error import HTTPError
 import pandas as pd
 import streamlit as st
 from google.oauth2 import service_account
 from googleapiclient.discovery import build, MediaFileUpload
-from googleapiclient.http import MediaIoBaseDownload
 from utils import initialize_session_state
 from datetime import datetime
 import os
@@ -27,12 +25,13 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive.metadata",
 ]
 
+
 class GoogleServices:
     def __init__(self, info, scopes):
         self.credentials = service_account.Credentials.from_service_account_info(info=info, scopes=scopes)
         self.sheets = build(serviceName="sheets", version="v4", credentials=self.credentials)
         self.drive = build(serviceName="drive", version="v3", credentials=self.credentials)
-        self.session_variables = ['subs', 'entries', 'files', 'members', 'main', 'scores']
+        self.session_variables = ['subs', 'entries', 'files', 'members', 'main']
         initialize_session_state(self.session_variables)
 
     def get_folder_id(self, name):
@@ -41,11 +40,7 @@ class GoogleServices:
         return file['files'][0]['id']
 
     def get_files(self, name):
-        try:
-            folder_id = self.get_folder_id(name)
-        except IndexError as e:
-            print(e)
-            return
+        folder_id = self.get_folder_id(name)
         q = f'parents = "{folder_id}"'
         r = self.drive.files().list(q=q).execute()
         files = r.get('files')
@@ -87,33 +82,28 @@ class GoogleServices:
             return e
 
     def get_data(self, columns, worksheet_id, sheet_name, range='A:D'):
-        try:
-            values = (self.sheets.spreadsheets().values().get(
-                spreadsheetId=worksheet_id,
-                range=f"{sheet_name}!{range}",
-                ).execute()
-            )
-        except HTTPError as e:
-            print(e)
-            return
+        values = (self.sheets.spreadsheets().values().get(
+            spreadsheetId=worksheet_id,
+            range=f"{sheet_name}!{range}",
+            ).execute()
+        )
         df = pd.DataFrame(values['values'])
         df.columns = df.iloc[0]
         df = df[1:]
         return df.get(columns) if columns != None else df
 
     def write(self, data, worksheet_id, sheet_name, range='A:K'):
-        self.sheets.spreadsheets().values().append(
+        service.sheets.spreadsheets().values().append(
         spreadsheetId=worksheet_id,
         range=f"{sheet_name}!{range}",
         body=dict(values=data),
         valueInputOption="USER_ENTERED",
     ).execute()
 
-
 class Authenticator:
     def __init__(self, data):
         self.data = data
-        self.session_variables = ['logged_in', 'user', 'admin', 'dev', 'sg', 'data']
+        self.session_variables = ['logged_in', 'user', 'admin', 'dev', 'sg']
         initialize_session_state(self.session_variables)
 
     def authenticate(self, username, password):
@@ -157,31 +147,27 @@ class Authenticator:
 def get_all_monthly_hours():
     output = []
     this_month = datetime.now().date().month
-    names = st.session_state.members['Name']
-    for name in names:
+    users = service.get_data(columns='Name', worksheet_id=LHT_ID, sheet_name='Members')
+    for user in users:
         total_hours = 0
         data= None
         try:
-            data = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name=name)
+            data = service.get_data(column=None, worksheet_id=LHT_ID, sheet_name=user)
         except:
             continue
         if data is None:
-            output.append([name, 0])
+            output.append([user, 0])
         else:
             for i, row in data.iterrows():
                 date = row['Date']
                 hours = row['Hours']
                 if int(date[5:7]) == this_month:
                     total_hours += int(hours)
-            output.append([name, total_hours])
+            output.append([user, total_hours])
     return output
 
 def calculate_hours_done_this_month(name):
-    try:
-        data = service.get_data(columns=['Date', 'Hours'], worksheet_id=LHT_ID, sheet_name=name)
-    except Exception as e:
-        print(e)
-        return '?'
+    data = service.get_data(columns=['Date', 'Hours'], worksheet_id=LHT_ID, sheet_name=name)
     if data is None:
         return 0
     this_month = datetime.now().date().month
@@ -190,28 +176,24 @@ def calculate_hours_done_this_month(name):
 
 def calculate_hours_required(data):
     def to_value(score:str):
-        total: float = 0.0
+        total = 0.0
         if '+' in score:
             total =+ 0.5
             score = score.replace('+', '')
         total += float(score)
         return total
 
-    def evaluate(score:float):
-        value: int = 99
+    def evaluate(score):
+        value = None
         match score:
-            case '5.5': 
-                value = 2,
-            case '5.0': 
-                value = 4,
-            case '4.5': 
-                value = 6,
-            case '4.0': 
-                value = 8,
+            case '5.5': value = 2,
+            case '5.0': value = 4,
+            case '4.5': value = 6,
+            case '4.0': value = 8,
             case _: 
-                if score >= 6:
+                if float(score) >= 6:
                     value = 0
-                elif score < 4:
+                elif float(score) < 4:
                     value = 12
         return value
 
@@ -220,52 +202,40 @@ def calculate_hours_required(data):
             raise ValueError
         values = sorted(scores, reverse=True)
         return values[:k]
-    
-    BAD = ['1+', '1', '0+', '0']
-    GOOD = ['3', '3+', '4']
 
-    if isinstance(data, pd.DataFrame):
-        if data.empty:
-            return
-
-    if isinstance(data, dict):
-        if not data:
-            return
-
-    if data['CLang'] in ['AD']:
-        if data['MSA - Listening'] in GOOD and data['MSA - Reading'] in GOOD:
-            return 0
-        if data['MSA - Listening'] in BAD or data['MSA - Reading'] in BAD:
-            return 12
-        else:
+    bad_scores = ['1+', '1', '0+', '0']
+    match data['CLang']:
+        case 'AD':
+            if data['MSA - Listening'] in bad_scores or data['MSA - Reading'] in bad_scores:
+                return 12
             value = sum([to_value(data['MSA - Listening']), to_value(data['MSA - Reading'])])
-            return evaluate(str(value))[0]
+        case default:
+            if data['CL - Listening'] in bad_scores or data['MSA - Reading'] in bad_scores:
+                return 12
+            if data['Dialects']:
+                vals = [d.split(' ')[1] for d in data['Dialects']]
+                high = to_value((highest(vals, 1)[0]))
+                if high > to_value(data['CL - Listening']):
+                    value = sum([high, to_value(data['MSA - Reading'])])
+                else:
+                    value = sum([to_value(data['CL - Listening']), to_value(data['MSA - Reading'])])
 
-    if data['CLang'] in ['AP', 'DG']:
-        if data['CL - Listening'] in GOOD and data['MSA - Reading'] in GOOD:
-            return 0
-        if data['CL - Listening'] in BAD or data['MSA - Reading'] in BAD:
-            return 12
-        if data['Dialects']:
-            vals = [v.strip().split(' ')[1] for v in data['Dialects'].split(',')]
-            vals.append(data['CL - Listening'])
-            high = to_value((highest(vals, 1)[0]))
-            value = sum([high, to_value(data['MSA - Reading'])])
-            return evaluate(str(value))[0]
-        else:
-            value = sum([to_value(data['CL - Listening']), to_value(data['MSA - Reading'])])
-            return evaluate(str(value))[0]
-    else:
-        return 99
+    return evaluate(str(value))[0]
 
-def get_subs(supe):
+def get_subs(name):
     df = service.get_data(columns=['Name', 'Supervisor'], worksheet_id=LST_ID, sheet_name="Main", range="A:K")
-    subs = df[df["Supervisor"] == supe]
-    return subs
+    subs = df[df["Supervisor"] == name]
+    return subs['Name']
+
+def get_user_info_index(name):
+    df = st.session_state.members
+    index = df.loc[df['Name'] ==  name].index[0]
+    return index + 1
 
 def check_flags() -> list:
     '''returns list of flags'''
     data = st.session_state.members
+    # replace Flags with list of columns for multiple ?
     flags = data.query(f'Name == "{st.session_state.user["Name"]}"')['Flags']
     flags = flags.tolist()[0]
     if flags != None:
@@ -312,27 +282,15 @@ def devbar():
         with st.expander('+'):
             st.write('meow')
 
-def get_user_info_index(name):
-    df = st.session_state.members
-    index = df.loc[df['Name'] ==  name].index[0]
-    return index + 1
-
-def welcome():
-    return '🦢 Silly Goose' if st.session_state.sg else st.session_state.user['Name']
-
 def sidebar():
     def show_dataframe(name):
-        data = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name=name, range='A:D')
-        if data.empty:
-            st.warning('no entries found')
-            return
+        data = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name=name)
         st.dataframe(data, width=300)
 
-    def tooltip(data):
-        output = f'CL: {data["CL - Listening"]} MSA: {data["MSA - Listening"]}/{data["MSA - Reading"]} (click to view entries)'
-        return output
+    with st.sidebar:
+        welcome_name = '🦢 Silly Goose' if st.session_state.sg else st.session_state.user['Name']
+        st.subheader(f'Welcome {welcome_name}!')
 
-    def info():
         with st.expander('My Info'):
             st.text_input('Name', value=st.session_state.user['Name'], disabled=True)
             username = st.text_input('Username', value=st.session_state.user['Username'])
@@ -351,8 +309,7 @@ def sidebar():
                 except Exception as e:
                     st.warning('failed to update')
                     print(e)
-
-    def upload():
+#
         with st.expander('Upload/Download Files'):
             file = st.file_uploader('Upload 623A or ILTP', type=['pdf', 'txt', 'docx'])
             st.write('note: be sure to submit an entry annotating a 623 upload with the number of hours')
@@ -366,65 +323,39 @@ def sidebar():
                         raise e
                 os.remove(f"temp/{file.name}")
 
-    def subs():
         with st.expander('My Troops'):
-                subs = st.session_state.subs
-                for sub in subs.to_dict('records'):
-                    sub_data = service.get_data(columns=None, worksheet_id=LST_ID, sheet_name='Main', range='A:K')
-                    sub_data = sub_data.loc[sub_data['Name'] == sub['Name']].to_dict('records')[0]
-                    cols = st.columns((5, 2))
-                    if cols[0].button(sub['Name'], help=tooltip(sub_data)):
-                        show_dataframe(sub['Name'])
-                    hrs_done = calculate_hours_done_this_month(sub['Name'])
-                    hrs_req = calculate_hours_required(sub_data)
-                    color = 'green' if hrs_done >= hrs_req else 'red'
-                    cols[1].markdown(f'<p style="color:{color}">{hrs_done}/{hrs_req} hrs</p>', unsafe_allow_html=True)
+            subs = st.session_state.subs
+            for sub in subs:
+                cols = st.columns((5, 2))
+                if cols[0].button(sub, help='click to show history'):
+                    show_dataframe(sub)
+                hrs_done = calculate_hours_done_this_month(sub)
+                sub_data = service.get_data(columns=None, worksheet_id=LST_ID, sheet_name='Main', range='A:K').to_dict()
+                print('data:', sub_data)
+                hrs_req = calculate_hours_required(sub_data)
+                color = 'green' if hrs_done >= hrs_req else 'red'
+                cols[1].markdown(f'<p style="color:{color}">{hrs_done}/{hrs_req} hrs</p>', unsafe_allow_html=True)
 
-    def files():
-            with st.expander('My Files'):
-                files = st.session_state.files
-                if not files:
-                    st.sidebar.warning('no files')
-                else:
-                    for file in files:
-                        if st.button(file['name'], key=file['id']):
-                            try:
-                                r = service.drive.files().get_media(fileId=file['id'])
-                                file_bytes = BytesIO()
-                                download = MediaIoBaseDownload(file_bytes, r)
-                                done = False
-                                while done is False:
-                                    status, done = download.next_chunk()
-                                    st.progress(value=status.progress())
-                            except HTTPError as e:
-                                print(e)
-                                file_bytes = None
-                                st.warning('failed to load file')
-    #
-                            with open(f"temp/{file['name']}", "wb") as f:
-                                f.write(file_bytes.getbuffer())
-                                uie.display_file(file['name'])
-                            os.remove(f"temp/{file['name']}")
-
-    with st.sidebar:
-        st.subheader(f'Welcome {welcome()}!')
-        #info()
-        upload()
-        subs()
-        #files()             
+        with st.expander('My Files'):
+            return
+            files = st.session_state.files
+            if not files:
+                st.sidebar.warning('no files')
+            for f in files:
+                if st.button(f['name'], key=f['id']):
+                    pass
 
 def main_page():
     with st.form('Entry'):
         st.subheader('Language Hour Entry')
         user = st.session_state.user
-        scores = st.session_state.scores
         cols = st.columns((2, 1))
         cols[0].text_input("Name", value=user['Name'], placeholder="Last, First", disabled=True)
         date = cols[1].date_input("Date")
         cols = st.columns((2, 1))
         mods = cols[0].multiselect("Activity", options=['Listening', 'Reading', 'Speaking', 'Vocab', 'SLTE'])
         hours_done = calculate_hours_done_this_month(user['Name'])
-        hours_req = calculate_hours_required(scores)
+        hours_req = calculate_hours_required(user['Name'])
         hours = cols[1].text_input(f"Hours - {hours_done}/{hours_req} hrs completed")
         cols = st.columns((2, 1))
         desc = cols[0].text_area("Description", height=150, placeholder='be detailed!')
@@ -457,23 +388,16 @@ def main_page():
 
     with st.expander('Show my Language Hour history'):
         try:
-            data = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name=user['Name'])
+            data = service.get_data(column=None, worksheet_id=LHT_ID, sheet_name=user['Name'])
             st.dataframe(data, width=680)
         except:
             st.warning('could not load history')
 
 def preload_data():
-    try:
-        st.session_state.subs = get_subs(st.session_state.user['Name'])
-        st.session_state.files = service.get_files(name=st.session_state.user['Name'])
-        st.session_state.members = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name='Members', range='A:D')
-        df = service.get_data(columns=None, worksheet_id=LST_ID, sheet_name='Main', range='A:K')
-        st.session_state.scores = df.loc[df['Name'] == st.session_state.user['Name']]
-        st.session_state.scores = st.session_state.scores.to_dict('records')[0]
-        return True
-    except IndexError as e:
-        print(e)
-        return False
+    st.session_state.subs = get_subs(st.session_state.user['Name'])
+    st.session_state.files = service.get_files(name=st.session_state.user['Name'])
+    st.session_state.members = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name='Members', range='A:D')
+    st.session_state.main = service.get_data(columns=None, worksheet_id=LST_ID, sheet_name='Main')
 
 service = GoogleServices(SERVICE_ACCOUNT, SCOPES)
 data = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name='Members')
