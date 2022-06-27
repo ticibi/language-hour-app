@@ -21,7 +21,6 @@ FOLDER_ID = st.secrets['FOLDER_ID']
 LST_URL = st.secrets['LST_URL']
 LHT_URL = st.secrets['LHT_URL']
 DRIVE_URL = st.secrets['DRIVE_URL']
-USERS_ID = st.secrets['USERS_ID']
 PASSWORD = st.secrets['PASSWORD']
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
