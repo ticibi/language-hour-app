@@ -1,6 +1,5 @@
 .venv
 .streamlit/secrets.toml
 .notinuse
-__pycache__
 test.py
 
