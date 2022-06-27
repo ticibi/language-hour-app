@@ -14,7 +14,6 @@ import inspect
 
 st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
 
-LHT_HEADERS = st.secrets['LHT_HEADERS']
 SERVICE_ACCOUNT = st.secrets['service_account']
 LHT_ID = st.secrets['LHT_ID']
 LST_ID = st.secrets['LST_ID']
