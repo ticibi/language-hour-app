@@ -5,14 +5,16 @@ import streamlit as st
 from google.oauth2 import service_account
 from googleapiclient.discovery import build, MediaFileUpload
 from googleapiclient.http import MediaIoBaseDownload
-from utils import initialize_session_state
+from utils import initialize_session_state, to_excel
 from datetime import datetime
 import os
 import ui_elements as uie
+import inspect
 
 
 st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
 
+LHT_HEADERS = st.secrets['LHT_HEADERS']
 SERVICE_ACCOUNT = st.secrets['service_account']
 LHT_ID = st.secrets['LHT_ID']
 LST_ID = st.secrets['LST_ID']
@@ -20,6 +22,8 @@ FOLDER_ID = st.secrets['FOLDER_ID']
 LST_URL = st.secrets['LST_URL']
 LHT_URL = st.secrets['LHT_URL']
 DRIVE_URL = st.secrets['DRIVE_URL']
+USERS_ID = st.secrets['USERS_ID']
+PASSWORD = st.secrets['PASSWORD']
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
@@ -35,6 +39,55 @@ class GoogleServices:
         self.session_variables = ['subs', 'entries', 'files', 'members', 'main', 'scores']
         initialize_session_state(self.session_variables)
 
+    def create_folder(self, name):
+        metadata = {
+            'name': name,
+            'mimeType': 'application/vnd.google-apps.folder',
+            'parents': [FOLDER_ID],
+        }
+        folder = None
+        try:
+            folder = self.drive.files().create(
+                body=metadata,
+                fields='id',
+            ).execute()
+        except HTTPError as e:
+            print(inspect.getframeinfo(inspect.currentframe())[2], e)
+        return folder
+
+    def add_sheet(self, name, sheet_id=LHT_ID):
+        body = {
+            'requests': [
+                {
+                    'addSheet': {
+                        'properties': {
+                            'title': name,
+                        }
+                    }
+                }
+            ]
+        }
+        try:
+            r = self.batch_update(body, sheet_id)
+            return True
+        except HTTPError as e:
+            print(inspect.getframeinfo(inspect.currentframe())[2], e)
+            return False
+
+    def get_sheet_id(self, name, worksheet_id=LHT_ID):
+        sheet_id = None
+        try:
+            data = self.sheets.get(
+                spreadsheetId=worksheet_id,
+            ).execute()
+        except HTTPError as e:
+            print(inspect.getframeinfo(inspect.currentframe())[2], e)
+        for sheet in data['sheets']:
+            if sheet['properties']['title'] == name:
+                sheet_id = sheet['properties']['sheetId']
+                break
+        return sheet_id
+
     def get_folder_id(self, name):
         q = f'mimeType="application/vnd.google-apps.folder" and name="{name}"'
         file = self.drive.files().list(q=q, fields=f'files(id)').execute()
@@ -44,7 +97,7 @@ class GoogleServices:
         try:
             folder_id = self.get_folder_id(name)
         except IndexError as e:
-            print(e)
+            print(inspect.getframeinfo(inspect.currentframe())[2], e)
             return
         q = f'parents = "{folder_id}"'
         r = self.drive.files().list(q=q).execute()
@@ -66,6 +119,22 @@ class GoogleServices:
         media = MediaFileUpload(f"temp/{file.name}", mimetype="*/*")
         self.drive.files().create(body=file_metadata, media_body=media, fields="id").execute()
 
+    def download_file(self, file_name, file_id):
+        r = self.drive.files.get_media(fileId=file_id)
+        data = BytesIO()
+        try:
+            download = MediaIoBaseDownload(fd=data, request=r)
+        except HTTPError as e:
+            print(inspect.getframeinfo(inspect.currentframe())[2], e)
+        done = False
+        while not done:
+            status, done = download.next_chunk()
+        data.seek(0)
+        with open(os.path.join('./LanguageHourFiles', file_name), 'wb') as f:
+            f.write(data.read())
+            f.close()
+        return data
+
     def update_password(self, index: int, sheet_name, values):
         body = {'values': values}
         try:
@@ -73,16 +142,18 @@ class GoogleServices:
                 spreadsheetId=LHT_ID, range=f'{sheet_name}!C{index}', valueInputOption='USER_ENTERED', body=body,
             ).execute()
         except HTTPError as e:
+            print(inspect.getframeinfo(inspect.currentframe())[2], e)
             st.warning('error')
             return e
 
-    def update_username(self, index, sheet_name, values):
+    def update_username(self, index: int, sheet_name, values):
         body = {'values': values}
         try:
             r = self.sheets.spreadsheets().values().update(
                 spreadsheetId=LHT_ID, range=f'{sheet_name}!B{index}', valueInputOption='USER_ENTERED', body=body,
             ).execute()
         except HTTPError as e:
+            print(inspect.getframeinfo(inspect.currentframe())[2], e)
             st.warning('error')
             return e
 
@@ -94,20 +165,115 @@ class GoogleServices:
                 ).execute()
             )
         except HTTPError as e:
-            print(e)
+            print(inspect.getframeinfo(inspect.currentframe())[2], e)
             return
         df = pd.DataFrame(values['values'])
         df.columns = df.iloc[0]
         df = df[1:]
         return df.get(columns) if columns != None else df
 
-    def write(self, data, worksheet_id, sheet_name, range='A:K'):
+    def write(self, data: list, worksheet_id, sheet_name, range='A:K'):
         self.sheets.spreadsheets().values().append(
         spreadsheetId=worksheet_id,
         range=f"{sheet_name}!{range}",
         body=dict(values=data),
         valueInputOption="USER_ENTERED",
     ).execute()
+
+    def batch_update(self, body, worksheet_id=LHT_ID):
+        r = None
+        try:
+            r = self.sheets.spreadsheets().batchUpdate(
+                spreadsheetId=worksheet_id,
+                body=body,
+            ).execute()
+        except HTTPError as e:
+            print(e)
+        return r
+
+    def add_member(self, user_data: dict):
+        try:
+            self.create_folder(user_data['Name'])
+            st.success('created folder')
+        except Exception as e:
+            print(inspect.getframeinfo(inspect.currentframe())[2], e)
+            st.warning('failed to create folder')
+        try:
+            self.add_sheet(user_data['Name'])
+            cell_range = 'A1'
+            values = (
+                ('Date', 'Hours', 'Modality', 'Description', 'Vocab'),
+            )
+            body = {
+                'majorDimension': 'ROWS',
+                'values': values,
+            }
+            self.sheets.spreadsheets().values().update(
+                spreadsheetId=LHT_ID,
+                valueInputOption='USER_ENTERED',
+                range=f'{user_data["Name"]}!{cell_range}',
+                body=body,
+            ).execute()
+            st.success('created sheet')
+        except Exception as e:
+            print(e)
+            st.warning('failed to create sheet')
+        try:
+            data =[[user_data['Name'], user_data['Username'], PASSWORD, user_data['Flags']]]
+            self.write(data, worksheet_id=LHT_ID, sheet_name='Members', range='A:D')
+            st.success('added member info')
+        except Exception as e:
+            print(e)
+            st.warning('failed to add member info')
+        try:
+            data = []
+            data.append(list(user_data.values())[:-1])
+            data[0].pop(1)
+            self.write(data, worksheet_id=LST_ID, sheet_name='Main', range='A:K')
+            st.success('added member scores')
+        except Exception as e:
+            print(e)
+            st.warning('failed to add member scores')
+
+    def remove_member(self, name: str, worksheet_id=LHT_ID):
+        sheet_id = self.get_sheet_id(name)
+        body = {
+            "requests": [
+                {
+                    "deleteSheet": {
+                        "sheetId": sheet_id,
+                    }
+                }
+            ]
+        }
+        try:
+            r = self.sheets.spreadsheets().batchUpdate(
+                spreadsheetId=worksheet_id, body=body
+            ).execute()
+        except HTTPError as e:
+            print(__name__, e)
+        user_data = self.get_data(columns=None, worksheet_id=LST_ID, sheet_name='Main')
+        index = user_data.index[user_data['Name'] == name].tolist()[0]
+        body = {
+            "requests": [
+                {
+                    "deleteDimension": {
+                        "range": {
+                            "sheetId": worksheet_id,
+                            "dimension": "ROWS",
+                            "startIndex": index,
+                            "endIndex": index + 1,
+                        }
+                    }
+                }
+            ]
+        }
+        try:
+            r = self.sheets.spreadsheets().batchUpdate(
+                spreadsheetId=worksheet_id, body=body
+            ).execute()
+        except HTTPError as e:
+            print(__name__, e)
 
 
 class Authenticator:
@@ -301,7 +467,27 @@ def adminbar():
                 flags = st.multiselect(label="Flags", options=['admin', 'dev'])
                 submit = st.form_submit_button('Add Member')
                 if submit:
-                    pass
+                    user_data = {
+                        'Name': name,
+                        'Username': username,
+                        'CLang': clang,
+                        'ILTP': iltp,
+                        'SLTE': str(slte),
+                        'DLPT': str(dlpt),
+                        'CL - Listening': cll,
+                        'MSA - Listening': msal,
+                        'MSA - Reading': msar,
+                        'Dialects': dialects if dialects else '',
+                        'Mentor': mentor if mentor else '',
+                        'Supervisor': supe,
+                        'Flags': flags if flags else '',
+                    }
+                    try:
+                        service.add_member(user_data)
+                    except Exception as e:
+                        print(__name__, e)
+                        st.error('failed to add member')
+
         st.write(f"[Language Score Tracker]({LST_URL})")
         st.write(f"[Language Hour Tracker]({LHT_URL})")
         st.write(f"[Google Drive]({DRIVE_URL})")
