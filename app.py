@@ -378,7 +378,7 @@ def calculate_hours_required(data):
         return total
 
     def evaluate(score:float):
-        value: int = 99
+        value: int = 0
         match score:
             case '5.5': 
                 value = 2,
@@ -480,8 +480,8 @@ def admin_main():
                         check = '✅'
                     else:
                         check = '❌'
-                    data.append([check, name, hrs_done, hrs_req])
-                df = pd.DataFrame(data, columns=['Met', 'Name', 'Hours Done', 'Hours Required'])
+                    data.append(['', check, name, hrs_done, hrs_req])
+                df = pd.DataFrame(data, columns=['Comments', 'Met', 'Name', 'Hours Done', 'Hours Required'])
                 st.table(df)
 
 def adminbar():
