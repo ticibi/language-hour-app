@@ -14,8 +14,7 @@ def to_excel(df):
     writer = pd.ExcelWriter(output, engine="xlsxwriter")
     df.to_excel(writer, index=False, sheet_name="Sheet1")
     writer.save()
-    data = output.getvalue()
-    return data
+    return output.getvalue()
 
 def timeit(func):
     def wrapper(*args, **kwargs):

@@ -6,10 +6,23 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build, MediaFileUpload
 from googleapiclient.http import MediaIoBaseDownload
 from utils import initialize_session_state, to_excel
-from datetime import datetime
+from datetime import datetime, date
 import os
 import ui_elements as uie
 import inspect
+import calendar
+
+
+# downlaod my language hours
+# admin: download language hours with button and selection box
+# notify slte due
+# notify dlpt due
+
+
+# admin: create new group(flight)
+# admin: link google drive
+# admin: link google sheet
+# admin: set default password
 
 
 st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
@@ -29,12 +42,13 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive.metadata",
 ]
 
+
 class GoogleServices:
     def __init__(self, info, scopes):
         self.credentials = service_account.Credentials.from_service_account_info(info=info, scopes=scopes)
         self.sheets = build(serviceName="sheets", version="v4", credentials=self.credentials)
         self.drive = build(serviceName="drive", version="v3", credentials=self.credentials)
-        self.session_variables = ['subs', 'entries', 'files', 'members', 'main', 'scores']
+        self.session_variables = ['subs', 'entries', 'files', 'members', 'main', 'scores', 'show_total_month_hours']
         initialize_session_state(self.session_variables)
 
     def create_folder(self, name):
@@ -323,10 +337,10 @@ def get_all_monthly_hours():
     this_month = datetime.now().date().month
     names = st.session_state.members['Name']
     for name in names:
-        total_hours = 0
+        hours_done = 0
         data= None
         try:
-            data = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name=name)
+            data = service.get_data(columns=['Date', 'Hours'], worksheet_id=LHT_ID, sheet_name=name)
         except:
             continue
         if data is None:
@@ -336,8 +350,10 @@ def get_all_monthly_hours():
                 date = row['Date']
                 hours = row['Hours']
                 if int(date[5:7]) == this_month:
-                    total_hours += int(hours)
-            output.append([name, total_hours])
+                    hours_done += int(hours)
+
+            user_data = st.session_state.main.loc[st.session_state.main['Name'] == name]
+            output.append([name, hours_done, calculate_hours_required(user_data)])
     return output
 
 def calculate_hours_done_this_month(name):
@@ -345,7 +361,7 @@ def calculate_hours_done_this_month(name):
         data = service.get_data(columns=['Date', 'Hours'], worksheet_id=LHT_ID, sheet_name=name)
     except Exception as e:
         print(e)
-        return '?'
+        return 0
     if data is None:
         return 0
     this_month = datetime.now().date().month
@@ -396,7 +412,7 @@ def calculate_hours_required(data):
         if not data:
             return
 
-    if data['CLang'] in ['AD']:
+    if data['CLang'] == 'AD':
         if data['MSA - Listening'] in GOOD and data['MSA - Reading'] in GOOD:
             return 0
         if data['MSA - Listening'] in BAD or data['MSA - Reading'] in BAD:
@@ -408,8 +424,6 @@ def calculate_hours_required(data):
     if data['CLang'] in ['AP', 'DG']:
         if data['CL - Listening'] in GOOD and data['MSA - Reading'] in GOOD:
             return 0
-        if data['CL - Listening'] in BAD or data['MSA - Reading'] in BAD:
-            return 12
         if data['Dialects']:
             vals = [v.strip().split(' ')[1] for v in data['Dialects'].split(',')]
             vals.append(data['CL - Listening'])
@@ -417,6 +431,8 @@ def calculate_hours_required(data):
             value = sum([high, to_value(data['MSA - Reading'])])
             return evaluate(str(value))[0]
         else:
+            if data['CL - Listening'] in BAD or data['MSA - Reading'] in BAD:
+                return 12
             value = sum([to_value(data['CL - Listening']), to_value(data['MSA - Reading'])])
             return evaluate(str(value))[0]
     else:
@@ -443,6 +459,30 @@ def check_flags() -> list:
             st.session_state.sg = True
         return flags
     return []
+
+def admin_main():
+    if st.session_state.show_total_month_hours:
+        with st.expander(f'Total Month Hours - {calendar.month_name[date.today().month]} {date.today().year}'):
+            with st.spinner('loading data...'):
+                data = []
+                hrs_done = None
+                hrs_req = None
+                user_data = None
+                check = None
+                for name in st.session_state.members['Name']:
+                    hrs_done = calculate_hours_done_this_month(name)
+                    try:
+                        user_data = st.session_state.main.loc[st.session_state.main['Name'] == name].to_dict('records')[0]
+                        hrs_req = calculate_hours_required(user_data)
+                    except:
+                        pass
+                    if float(hrs_done) >= float(hrs_req):
+                        check = '✅'
+                    else:
+                        check = '❌'
+                    data.append([check, name, hrs_done, hrs_req])
+                df = pd.DataFrame(data, columns=['Met', 'Name', 'Hours Done', 'Hours Required'])
+                st.table(df)
 
 def adminbar():
     st.sidebar.subheader('Admin')
@@ -486,6 +526,10 @@ def adminbar():
                         print(__name__, e)
                         st.error('failed to add member')
 
+        button = st.button('Show Total Month Hours')
+        if button:
+            st.session_state.show_total_month_hours = not st.session_state.show_total_month_hours
+
         st.write(f"[Language Score Tracker]({LST_URL})")
         st.write(f"[Language Hour Tracker]({LHT_URL})")
         st.write(f"[Google Drive]({DRIVE_URL})")
@@ -510,7 +554,7 @@ def sidebar():
         if data.empty:
             st.warning('no entries found')
             return
-        st.dataframe(data, width=300)
+        st.table(data)
 
     def tooltip(data):
         output = f'CL: {data["CL - Listening"]} MSA: {data["MSA - Listening"]}/{data["MSA - Reading"]} (click to view entries)'
@@ -538,6 +582,10 @@ def sidebar():
 
     def upload():
         with st.expander('Upload/Download Files'):
+            try:
+                st.download_button('📥 Download myLanguageHours', data=to_excel(st.session_state.entries))
+            except:
+                pass
             file = st.file_uploader('Upload 623A or ILTP', type=['pdf', 'txt', 'docx'])
             st.write('note: be sure to submit an entry annotating a 623 upload with the number of hours')
             if file:
@@ -599,14 +647,21 @@ def sidebar():
 
 def main_page():
     with st.form('Entry'):
+        name = ''
         st.subheader('Language Hour Entry')
         user = st.session_state.user
         scores = st.session_state.scores
+        subs = st.session_state.subs
         cols = st.columns((2, 1))
-        cols[0].text_input("Name", value=user['Name'], placeholder="Last, First", disabled=True)
+        if st.session_state.admin:
+            name = cols[0].text_input("Name", value=user['Name'], placeholder="Last, First", disabled=False)
+        else:
+            options = list(subs['Name'])
+            options.append(user['Name'])
+            name = cols[0].selectbox("Name", options=options, index=len(options)-1)
         date = cols[1].date_input("Date")
         cols = st.columns((2, 1))
-        mods = cols[0].multiselect("Activity", options=['Listening', 'Reading', 'Speaking', 'Vocab', 'SLTE'])
+        mods = cols[0].multiselect("Activity", options=['Listening', 'Reading', 'Speaking', 'Vocab', 'SLTE', 'ILTP upload', '623A upload', '---'])
         hours_done = calculate_hours_done_this_month(user['Name'])
         hours_req = calculate_hours_required(scores)
         hours = cols[1].text_input(f"Hours - {hours_done}/{hours_req} hrs completed")
@@ -624,7 +679,7 @@ def main_page():
             try:
                 service.write(
                     worksheet_id=LHT_ID,
-                    sheet_name=user['Name'],
+                    sheet_name=name,
                     data=[[
                         str(date),
                         float(hours),
@@ -635,29 +690,34 @@ def main_page():
                     )
                 st.success('entry submitted!')
                 st.balloons()
+                st.session_state.entries = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name=st.session_state.user['Name'])
             except Exception as e:
                 st.error('could not submit entry :(')
                 raise e
 
     with st.expander('Show my Language Hour history'):
         try:
-            data = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name=user['Name'])
-            st.dataframe(data, width=680)
+            st.table(st.session_state.entries)
         except:
             st.warning('could not load history')
 
 def preload_data():
     try:
+        st.session_state.main = service.get_data(columns=None, worksheet_id=LST_ID, sheet_name='Main', range='A:K')
         st.session_state.subs = get_subs(st.session_state.user['Name'])
         st.session_state.files = service.get_files(name=st.session_state.user['Name'])
         st.session_state.members = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name='Members', range='A:D')
         df = service.get_data(columns=None, worksheet_id=LST_ID, sheet_name='Main', range='A:K')
         st.session_state.scores = df.loc[df['Name'] == st.session_state.user['Name']]
         st.session_state.scores = st.session_state.scores.to_dict('records')[0]
+        st.session_state.entries = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name=st.session_state.user['Name'])
         return True
     except IndexError as e:
         print(e)
         return False
+
+def debug():
+    print('>>debug:')
 
 service = GoogleServices(SERVICE_ACCOUNT, SCOPES)
 data = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name='Members')
@@ -671,7 +731,10 @@ if st.session_state.logged_in:
         sidebar()
         if st.session_state.admin:
             adminbar()
+            admin_main()
         if st.session_state.dev:
             devbar()
+        debug()
 else:
     authenticator.login()
+
