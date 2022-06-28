@@ -663,7 +663,7 @@ def main_page():
             name = cols[0].selectbox("Name", options=options, index=len(options)-1)
         date = cols[1].date_input("Date")
         cols = st.columns((2, 1))
-        mods = cols[0].multiselect("Activity", options=['----', 'Listening', 'Reading', 'Speaking', 'Vocab', 'SLTE', 'ILTP upload', '623A upload'])
+        mods = cols[0].multiselect("Activity", options=['----', 'Listening', 'Reading', 'Speaking', 'Transcription', 'Vocab', 'SLTE', 'ILTP upload', '623A upload'])
         hours_done = calculate_hours_done_this_month(user['Name'])
         hours_req = calculate_hours_required(scores)
         hours = cols[1].text_input(f"Hours - {hours_done}/{hours_req} hrs completed")
