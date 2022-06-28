@@ -8,21 +8,8 @@ from googleapiclient.http import MediaIoBaseDownload
 from utils import initialize_session_state, to_excel
 from datetime import datetime, date
 import os
-import ui_elements as uie
 import inspect
 import calendar
-
-
-# downlaod my language hours
-# admin: download language hours with button and selection box
-# notify slte due
-# notify dlpt due
-
-
-# admin: create new group(flight)
-# admin: link google drive
-# admin: link google sheet
-# admin: set default password
 
 
 st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
@@ -635,7 +622,7 @@ def sidebar():
     #
                             with open(f"temp/{file['name']}", "wb") as f:
                                 f.write(file_bytes.getbuffer())
-                                uie.display_file(file['name'])
+                                #uie.display_file(file['name'])
                             os.remove(f"temp/{file['name']}")
 
     with st.sidebar:
