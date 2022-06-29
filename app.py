@@ -1,4 +1,5 @@
 from io import BytesIO
+from operator import contains
 from urllib.error import HTTPError
 import pandas as pd
 import streamlit as st
@@ -430,26 +431,23 @@ def get_subs(supe):
     subs = df[df["Supervisor"] == supe]
     return subs
 
-def check_flags() -> list:
+def check_flags():
     '''returns list of flags'''
     data = st.session_state.members
     flags = data.query(f'Name == "{st.session_state.user["Name"]}"')['Flags']
     flags = flags.tolist()[0]
     if flags != None:
-        flags = flags.strip()
-        flags = flags.split(',')
-        if 'admin' in flags:
+        if contains(flags, 'admin'):
             st.session_state.admin = True
-        if 'dev' in flags:
+        if contains(flags, 'dev'):
             st.session_state.dev = True
-        if 'sg' in flags:
+        if contains(flags, 'sg'):
             st.session_state.sg = True
-        return flags
-    return []
+    return flags
 
 def admin_main():
     if st.session_state.show_total_month_hours:
-        with st.expander(f'Total Month Hours - {calendar.month_name[date.today().month]} {date.today().year}'):
+        with st.expander(f'Total Month Hours - {calendar.month_name[date.today().month]} {date.today().year}', expanded=True):
             with st.spinner('loading data...'):
                 data = []
                 hrs_done = None
@@ -513,19 +511,39 @@ def adminbar():
                         print(__name__, e)
                         st.error('failed to add member')
 
-        button = st.button('Show Total Month Hours')
-        if button:
-            st.session_state.show_total_month_hours = not st.session_state.show_total_month_hours
+
+        with st.expander('Members'):
+            options = list(st.session_state.members['Name'])
+            options.append('')
+            member = st.selectbox('Select a Member', options=options, index=len(options)-1)
+            if member:
+                data = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name=member)
+                button = st.download_button(f'Download Entry History', data=to_excel(data))
+                file_button = st.button('Download Files')
+                if file_button:
+                    pass
+                remove_button = st.button('Remove Member')
+                if remove_button:
+                    confirm = st.button(f'Confirm Removal of "{member}"')
+                    if confirm:
+                        pass
+
+        with st.expander('More'):       
+            button = st.button('Show Total Month Hours')
+            if button:
+                st.session_state.show_total_month_hours = not st.session_state.show_total_month_hours
 
         st.write(f"[Language Score Tracker]({LST_URL})")
         st.write(f"[Language Hour Tracker]({LHT_URL})")
         st.write(f"[Google Drive]({DRIVE_URL})")
 
 def devbar():
-    st.sidebar.subheader('Developer')
+    st.sidebar.subheader('Dev')
     with st.sidebar:
         with st.expander('+'):
-            st.write('meow')
+            drive_id = st.text_input('Drive ID')
+            sheet_id = st.text_input('Sheet ID')
+            default_pass = st.text_input('Default Password')
 
 def get_user_info_index(name):
     df = st.session_state.members
