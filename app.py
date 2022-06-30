@@ -6,11 +6,11 @@ import streamlit as st
 from google.oauth2 import service_account
 from googleapiclient.discovery import build, MediaFileUpload
 from googleapiclient.http import MediaIoBaseDownload
-from utils import initialize_session_state, to_excel
-from datetime import datetime, date
-import os
+from utils import initialize_session_state_variables, to_excel
+from datetime import datetime, date, time
 import inspect
 import calendar
+import os
 
 
 st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
@@ -30,14 +30,34 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive.metadata",
 ]
 
+def log(event, worksheet_id=LHT_ID, sheet='Log', range='A:D'):
+    service.write(
+        [[str(date.today()),
+        str(datetime.now().strftime("%H:%M:%S")),
+        st.session_state.user['Username'],
+        event]],
+        worksheet_id=worksheet_id,
+        sheet_name=sheet,
+        range=range,
+    )
+
+
+class Notifications:
+    def __init__(self):
+        self.session_variables = []
+        initialize_session_state_variables(self.session_variables)
+
+    def foo():
+        pass
+
 
 class GoogleServices:
     def __init__(self, info, scopes):
         self.credentials = service_account.Credentials.from_service_account_info(info=info, scopes=scopes)
         self.sheets = build(serviceName="sheets", version="v4", credentials=self.credentials)
         self.drive = build(serviceName="drive", version="v3", credentials=self.credentials)
-        self.session_variables = ['subs', 'entries', 'files', 'members', 'main', 'scores', 'show_total_month_hours']
-        initialize_session_state(self.session_variables)
+        self.session_variables = ['subs', 'entries', 'files', 'members', 'main', 'scores', 'show_total_month_hours', 'help_text', 'total_month_all']
+        initialize_session_state_variables(self.session_variables)
 
     def create_folder(self, name):
         metadata = {
@@ -280,7 +300,7 @@ class Authenticator:
     def __init__(self, data):
         self.data = data
         self.session_variables = ['logged_in', 'user', 'admin', 'dev', 'sg', 'data']
-        initialize_session_state(self.session_variables)
+        initialize_session_state_variables(self.session_variables)
 
     def authenticate(self, username, password):
         data = self.data
@@ -394,11 +414,11 @@ def calculate_hours_required(data):
 
     if isinstance(data, pd.DataFrame):
         if data.empty:
-            return
+            return 0
 
     if isinstance(data, dict):
         if not data:
-            return
+            return 0
 
     if data['CLang'] == 'AD':
         if data['MSA - Listening'] in GOOD and data['MSA - Reading'] in GOOD:
@@ -424,7 +444,7 @@ def calculate_hours_required(data):
             value = sum([to_value(data['CL - Listening']), to_value(data['MSA - Reading'])])
             return evaluate(str(value))[0]
     else:
-        return 99
+        return 999
 
 def get_subs(supe):
     df = service.get_data(columns=['Name', 'Supervisor'], worksheet_id=LST_ID, sheet_name="Main", range="A:K")
@@ -449,25 +469,30 @@ def admin_main():
     if st.session_state.show_total_month_hours:
         with st.expander(f'Total Month Hours - {calendar.month_name[date.today().month]} {date.today().year}', expanded=True):
             with st.spinner('loading data...'):
-                data = []
-                hrs_done = None
-                hrs_req = None
-                user_data = None
-                check = None
-                for name in st.session_state.members['Name']:
-                    hrs_done = calculate_hours_done_this_month(name)
-                    try:
-                        user_data = st.session_state.main.loc[st.session_state.main['Name'] == name].to_dict('records')[0]
-                        hrs_req = calculate_hours_required(user_data)
-                    except:
-                        pass
-                    if float(hrs_done) >= float(hrs_req):
-                        check = '✅'
-                    else:
-                        check = '❌'
-                    data.append(['', check, name, hrs_done, hrs_req])
-                df = pd.DataFrame(data, columns=['Comments', 'Met', 'Name', 'Hours Done', 'Hours Required'])
-                st.table(df)
+                if st.session_state.total_month_all:
+                    df = pd.DataFrame(st.session_state.total_month_all, columns=['Comments', 'Met', 'Name', 'Hours Done', 'Hours Required'])
+                    st.table(df)
+                else:
+                    data = []
+                    hrs_done = None
+                    hrs_req = None
+                    user_data = None
+                    check = None
+                    for name in st.session_state.members['Name']:
+                        hrs_done = calculate_hours_done_this_month(name)
+                        try:
+                            user_data = st.session_state.main.loc[st.session_state.main['Name'] == name].to_dict('records')[0]
+                            hrs_req = calculate_hours_required(user_data)
+                        except:
+                            pass
+                        if float(hrs_done) >= float(hrs_req):
+                            check = '✅'
+                        else:
+                            check = '❌'
+                        data.append(['', check, name, hrs_done, hrs_req])
+                    df = pd.DataFrame(data, columns=['Comments', 'Met', 'Name', 'Hours Done', 'Hours Required'])
+                    st.table(df)
+                    st.session_state.total_month_all = data
 
 def adminbar():
     st.sidebar.subheader('Admin')
@@ -507,6 +532,7 @@ def adminbar():
                     }
                     try:
                         service.add_member(user_data)
+                        log(f'added member {username}')
                     except Exception as e:
                         print(__name__, e)
                         st.error('failed to add member')
@@ -526,7 +552,7 @@ def adminbar():
                 if remove_button:
                     confirm = st.button(f'Confirm Removal of "{member}"')
                     if confirm:
-                        pass
+                        log(f'removed member {username}')
 
         with st.expander('More'):       
             button = st.button('Show Total Month Hours')
@@ -576,9 +602,11 @@ def sidebar():
                 try:
                     if username != '':
                         service.update_username(index, sheet_name='Members', values=[[username]])
+                        log(f'updated username to {username}')
                         del username
                     if password != '':
                         service.update_password(index, sheet_name='Members', values=[[password]])
+                        log(f'changed their password')
                         del password
                     st.info('info updated')
                 except Exception as e:
@@ -592,12 +620,13 @@ def sidebar():
             except:
                 pass
             file = st.file_uploader('Upload 623A or ILTP', type=['pdf', 'txt', 'docx'])
-            st.write('note: be sure to submit an entry annotating a 623 upload with the number of hours')
+            st.write('NOTE FOR 623A ENTRIES: be sure to submit an entry annotating "623 upload" with the number of hours after uploading the pdf')
             if file:
                 with st.spinner('uploading...'):
                     try:
                         service.upload_file(file, folder=st.session_state.user['Name'])
                         st.sidebar.success('file uploaded')
+                        log(f'uploaded {file.type} file named "{file.name}"')
                     except Exception as e:
                         st.sidebar.error('could not upload file :(')
                         raise e
@@ -643,9 +672,15 @@ def sidebar():
                                 #uie.display_file(file['name'])
                             os.remove(f"temp/{file['name']}")
 
+    def help():
+        with st.expander('Help'):
+            print(list(st.session_state.help_text))
+            
+
     with st.sidebar:
         st.subheader(f'Welcome {welcome()}!')
         #info()
+        help()
         upload()
         subs()
         #files()             
@@ -668,7 +703,7 @@ def main_page():
             name = cols[0].selectbox("Name", options=options, index=len(options)-1)
         date = cols[1].date_input("Date")
         cols = st.columns((2, 1))
-        mods = cols[0].multiselect("Activity", options=['----', 'Listening', 'Reading', 'Speaking', 'Transcription', 'Vocab', 'SLTE', 'ILTP upload', '623A upload'])
+        mods = cols[0].multiselect("Activity", options=['----', 'Listening', 'Reading', 'Speaking', 'Transcription', 'Vocab', 'SLTE', 'DLPT', 'ILTP upload', '623A upload'])
         hours_done = calculate_hours_done_this_month(user['Name'])
         hours_req = calculate_hours_required(scores)
         hours = cols[1].text_input(f"Hours - {hours_done}/{hours_req} hrs completed")
@@ -677,7 +712,9 @@ def main_page():
         vocab = cols[1].text_area("Vocab", height=150, placeholder='list vocab you learned/reviewed')
         cols = st.columns(2)
         if cols[0].form_submit_button("Submit"):
-            if not hours.isdigit():
+            if contains(hours, 'test'):
+                hours = 0
+            elif not hours.isdigit():
                 st.warning('you need study for more than 0 hours...')
                 return
             if not desc:
@@ -698,6 +735,7 @@ def main_page():
                 st.success('entry submitted!')
                 st.balloons()
                 st.session_state.entries = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name=st.session_state.user['Name'])
+                log(f'submit {hours} hrs')
             except Exception as e:
                 st.error('could not submit entry :(')
                 raise e
@@ -710,6 +748,7 @@ def main_page():
 
 def preload_data():
     try:
+        st.session_state.help_text = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name='Help', range='A:B')
         st.session_state.main = service.get_data(columns=None, worksheet_id=LST_ID, sheet_name='Main', range='A:K')
         st.session_state.subs = get_subs(st.session_state.user['Name'])
         st.session_state.files = service.get_files(name=st.session_state.user['Name'])
@@ -724,7 +763,7 @@ def preload_data():
         return False
 
 def debug():
-    print('>>debug:')
+    pass
 
 service = GoogleServices(SERVICE_ACCOUNT, SCOPES)
 data = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name='Members')
