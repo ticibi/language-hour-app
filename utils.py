@@ -24,3 +24,4 @@ def timeit(func):
         print(func.__name__, "executed in", int((stop - start) * 1000), "ms")
         return output
     return wrapper
+
