@@ -692,7 +692,7 @@ def sidebar():
                     for file in files:
                         if st.button(file['name'], key=file['id']):
                             try:
-                                r = service.drive.files().get_media(fileId=file['id'])
+                                r = service.drive.drive.files().get_media(fileId=file['id'])
                                 file_bytes = BytesIO()
                                 download = MediaIoBaseDownload(file_bytes, r)
                                 done = False
