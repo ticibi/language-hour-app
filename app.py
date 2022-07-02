@@ -1,21 +1,20 @@
 from io import BytesIO
+from mimetypes import init
 from operator import contains
 from urllib.error import HTTPError
+from click import option
 import pandas as pd
 import streamlit as st
 from google.oauth2 import service_account
 from googleapiclient.discovery import build, MediaFileUpload
 from googleapiclient.http import MediaIoBaseDownload
 from utils import initialize_session_state_variables, to_excel
-from datetime import datetime, date, time
+from datetime import datetime, date
 import inspect
 import calendar
 import os
 
-
-st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
-
-SERVICE_ACCOUNT = st.secrets['service_account']
+SERVICE_ACCOUNT = st.secrets['SERVICE_ACCOUNT']
 LHT_ID = st.secrets['LHT_ID']
 LST_ID = st.secrets['LST_ID']
 FOLDER_ID = st.secrets['FOLDER_ID']
@@ -30,196 +29,194 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive.metadata",
 ]
 
-def log(event, worksheet_id=LHT_ID, sheet='Log', range='A:D'):
-    service.write(
-        [[str(date.today()),
-        str(datetime.now().strftime("%H:%M:%S")),
-        st.session_state.user['Username'],
-        event]],
-        worksheet_id=worksheet_id,
-        sheet_name=sheet,
-        range=range,
-    )
+st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
+session_variables = ['req_count', 'debug', 'subs', 'entries', 'files', 'members', 'main', 'scores', 'show_total_month_hours', 'help_text', 'total_month_all', 'logged_in', 'user', 'admin', 'dev', 'sg', 'data']
+initialize_session_state_variables(session_variables)
+st.session_state.req_count = 0
 
 
-class Notifications:
-    def __init__(self):
-        self.session_variables = []
-        initialize_session_state_variables(self.session_variables)
+def debug(text):
+    if not st.session_state.debug:
+        return
+    st.write(text)
+        
 
-    def foo():
-        pass
+class GServices:
+    def __init__(self, account_info, scopes):
+        self.credentials = service_account.Credentials.from_service_account_info(
+            info=account_info,
+            scopes=scopes,
+        )
+        self.mail = self.Mail(self.credentials)
+        self.sheets = self.Sheets(self.credentials)
+        self.drive = self.Drive(self.credentials)
 
+    class Mail:
+        def __init__(self, credentials):
+            self.mail = build(
+                serviceName='gmail',
+                version='v1',
+                credentials=credentials,
+            )
 
-class GoogleServices:
-    def __init__(self, info, scopes):
-        self.credentials = service_account.Credentials.from_service_account_info(info=info, scopes=scopes)
-        self.sheets = build(serviceName="sheets", version="v4", credentials=self.credentials)
-        self.drive = build(serviceName="drive", version="v3", credentials=self.credentials)
-        self.session_variables = ['subs', 'entries', 'files', 'members', 'main', 'scores', 'show_total_month_hours', 'help_text', 'total_month_all']
-        initialize_session_state_variables(self.session_variables)
+    class Sheets:
+        def __init__(self, credentials):
+            self.sheets = build(
+                serviceName='sheets',
+                version='v4',
+                credentials=credentials,
+            )
 
-    def create_folder(self, name):
-        metadata = {
-            'name': name,
-            'mimeType': 'application/vnd.google-apps.folder',
-            'parents': [FOLDER_ID],
-        }
-        folder = None
-        try:
-            folder = self.drive.files().create(
-                body=metadata,
-                fields='id',
-            ).execute()
-        except HTTPError as e:
-            print(inspect.getframeinfo(inspect.currentframe())[2], e)
-        return folder
-
-    def add_sheet(self, name, sheet_id=LHT_ID):
-        body = {
-            'requests': [
-                {
-                    'addSheet': {
-                        'properties': {
-                            'title': name,
+        def add_tab(self, tab_name, worksheet_id):
+            body = {
+                'requests': [
+                    {
+                        'addSheet': {
+                            'properties': {
+                                'title': tab_name,
+                            }
                         }
                     }
-                }
-            ]
-        }
-        try:
-            r = self.batch_update(body, sheet_id)
-            return True
-        except HTTPError as e:
-            print(inspect.getframeinfo(inspect.currentframe())[2], e)
-            return False
-
-    def get_sheet_id(self, name, worksheet_id=LHT_ID):
-        sheet_id = None
-        try:
-            data = self.sheets.get(
-                spreadsheetId=worksheet_id,
-            ).execute()
-        except HTTPError as e:
-            print(inspect.getframeinfo(inspect.currentframe())[2], e)
-        for sheet in data['sheets']:
-            if sheet['properties']['title'] == name:
-                sheet_id = sheet['properties']['sheetId']
-                break
-        return sheet_id
-
-    def get_folder_id(self, name):
-        q = f'mimeType="application/vnd.google-apps.folder" and name="{name}"'
-        file = self.drive.files().list(q=q, fields=f'files(id)').execute()
-        return file['files'][0]['id']
-
-    def get_files(self, name):
-        try:
-            folder_id = self.get_folder_id(name)
-        except IndexError as e:
-            print(inspect.getframeinfo(inspect.currentframe())[2], e)
-            return
-        q = f'parents = "{folder_id}"'
-        r = self.drive.files().list(q=q).execute()
-        files = r.get('files')
-        nextPageToken = r.get('nextPageToken')
-        while nextPageToken:
-            r = self.drive.files().list(q=q).execute()
-            files.extend(r.get('files'))
-        return files
-
-    def upload_file(self, file, folder):
-        '''upload file onto the google drive into the destination folder'''
-        with open(f"temp/{file.name}", "wb") as f:
-            f.write(file.getbuffer())
-        file_metadata = {
-                "name": f"{file.name}",
-                "parents": [self.get_folder_id(folder)],
+                ]
             }
-        media = MediaFileUpload(f"temp/{file.name}", mimetype="*/*")
-        self.drive.files().create(body=file_metadata, media_body=media, fields="id").execute()
+            try:
+                r = self.batch_update(body, worksheet_id)
+                return True
+            except HTTPError as e:
+                print(e)
+                return False
 
-    def download_file(self, file_name, file_id):
-        r = self.drive.files.get_media(fileId=file_id)
-        data = BytesIO()
-        try:
-            download = MediaIoBaseDownload(fd=data, request=r)
-        except HTTPError as e:
-            print(inspect.getframeinfo(inspect.currentframe())[2], e)
-        done = False
-        while not done:
-            status, done = download.next_chunk()
-        data.seek(0)
-        with open(os.path.join('./LanguageHourFiles', file_name), 'wb') as f:
-            f.write(data.read())
-            f.close()
-        return data
-
-    def update_password(self, index: int, sheet_name, values):
-        body = {'values': values}
-        try:
-            r = self.sheets.spreadsheets().values().update(
-                spreadsheetId=LHT_ID, range=f'{sheet_name}!C{index}', valueInputOption='USER_ENTERED', body=body,
-            ).execute()
-        except HTTPError as e:
-            print(inspect.getframeinfo(inspect.currentframe())[2], e)
-            st.warning('error')
-            return e
-
-    def update_username(self, index: int, sheet_name, values):
-        body = {'values': values}
-        try:
-            r = self.sheets.spreadsheets().values().update(
-                spreadsheetId=LHT_ID, range=f'{sheet_name}!B{index}', valueInputOption='USER_ENTERED', body=body,
-            ).execute()
-        except HTTPError as e:
-            print(inspect.getframeinfo(inspect.currentframe())[2], e)
-            st.warning('error')
-            return e
-
-    def get_data(self, columns, worksheet_id, sheet_name, range='A:D'):
-        try:
-            values = (self.sheets.spreadsheets().values().get(
-                spreadsheetId=worksheet_id,
-                range=f"{sheet_name}!{range}",
+        def get_tab_id(self, tab_name, worksheet_id):
+            sheet_id = None
+            try:
+                data = self.sheets.get(
+                    spreadsheetId=worksheet_id,
                 ).execute()
-            )
-        except HTTPError as e:
-            print(inspect.getframeinfo(inspect.currentframe())[2], e)
-            return
-        df = pd.DataFrame(values['values'])
-        df.columns = df.iloc[0]
-        df = df[1:]
-        return df.get(columns) if columns != None else df
+            except HTTPError as e:
+                print(inspect.getframeinfo(inspect.currentframe())[2], e)
+            for sheet in data['sheets']:
+                if sheet['properties']['title'] == tab_name:
+                    sheet_id = sheet['properties']['sheetId']
+                    break
+            return sheet_id
 
-    def write(self, data: list, worksheet_id, sheet_name, range='A:K'):
-        self.sheets.spreadsheets().values().append(
-        spreadsheetId=worksheet_id,
-        range=f"{sheet_name}!{range}",
-        body=dict(values=data),
-        valueInputOption="USER_ENTERED",
-    ).execute()
+        def get_data(self, columns, tab_name, worksheet_id, range='A:K'):
+            try:
+                values = (self.sheets.spreadsheets().values().get(
+                    spreadsheetId=worksheet_id,
+                    range=f"{tab_name}!{range}",
+                    ).execute()
+                )
+            except HTTPError as e:
+                print(e)
+                return
+            df = pd.DataFrame(values['values'])
+            df.columns = df.iloc[0]
+            df = df[1:]
+            st.session_state.req_count += 1
+            return df.get(columns) if columns != None else df
 
-    def batch_update(self, body, worksheet_id=LHT_ID):
-        r = None
-        try:
-            r = self.sheets.spreadsheets().batchUpdate(
+        def write_data(self, data, tab_name, worksheet_id, range='A:K'):
+            self.sheets.spreadsheets().values().append(
                 spreadsheetId=worksheet_id,
-                body=body,
+                range=f"{tab_name}!{range}",
+                body=dict(values=data),
+                valueInputOption="USER_ENTERED",
             ).execute()
-        except HTTPError as e:
-            print(e)
-        return r
 
-    def add_member(self, user_data: dict):
+        def append_data(self, data, tab_name, worksheet_id, range='A:K'):
+            pass
+
+        def batch_update(self, body, worksheet_id):
+            r = None
+            try:
+                r = self.sheets.spreadsheets().batchUpdate(
+                    spreadsheetId=worksheet_id,
+                    body=body,
+                ).execute()
+            except HTTPError as e:
+                print(e)
+            return r
+
+    class Drive:
+        def __init__(self, credentials):
+            self.drive = build(
+                serviceName='drive',
+                version='v3',
+                credentials=credentials,
+            )
+
+        def create_folder(self, folder_name):
+            metadata = {
+                'name': folder_name,
+                'mimeType': 'application/vnd.google-apps.folder',
+                'parents': [FOLDER_ID],
+            }
+            folder = None
+            try:
+                folder = self.drive.files().create(
+                    body=metadata,
+                    fields='id',
+                ).execute()
+            except HTTPError as e:
+                print(e)
+            return folder
+
+        def get_folder_id(self, folder_name):
+            q = f'mimeType="application/vnd.google-apps.folder" and name="{folder_name}"'
+            file = self.drive.files().list(q=q, fields=f'files(id)').execute()
+            return file['files'][0]['id']
+
+        def get_files(self, folder_name):
+            try:
+                folder_id = self.get_folder_id(folder_name)
+            except IndexError as e:
+                print(e)
+                return
+            q = f'parents = "{folder_id}"'
+            r = self.drive.files().list(q=q).execute()
+            files = r.get('files')
+            nextPageToken = r.get('nextPageToken')
+            while nextPageToken:
+                r = self.drive.files().list(q=q).execute()
+                files.extend(r.get('files'))
+            return files
+
+        def download_file(self, file_name, file_id):
+            r = self.drive.files.get_media(fileId=file_id)
+            data = BytesIO()
+            try:
+                download = MediaIoBaseDownload(fd=data, request=r)
+            except HTTPError as e:
+                print(e)
+            done = False
+            while not done:
+                status, done = download.next_chunk()
+            data.seek(0)
+            with open(os.path.join('./LanguageHourFiles', file_name), 'wb') as f:
+                f.write(data.read())
+                f.close()
+            return data
+
+        def upload_file(self, file, folder_name):
+            with open(f"temp/{file.name}", "wb") as f:
+                f.write(file.getbuffer())
+            file_metadata = {
+                    "name": f"{file.name}",
+                    "parents": [self.get_folder_id(folder_name)],
+                }
+            media = MediaFileUpload(f"temp/{file.name}", mimetype="*/*")
+            self.drive.files().create(body=file_metadata, media_body=media, fields="id").execute()
+
+    def add_member(self, data):
         try:
-            self.create_folder(user_data['Name'])
+            self.drive.create_folder(data['Name'])
             st.success('created folder')
         except Exception as e:
-            print(inspect.getframeinfo(inspect.currentframe())[2], e)
+            print(e)
             st.warning('failed to create folder')
         try:
-            self.add_sheet(user_data['Name'])
+            self.sheets.add_tab(data['Name'])
             cell_range = 'A1'
             values = (
                 ('Date', 'Hours', 'Modality', 'Description', 'Vocab'),
@@ -231,7 +228,7 @@ class GoogleServices:
             self.sheets.spreadsheets().values().update(
                 spreadsheetId=LHT_ID,
                 valueInputOption='USER_ENTERED',
-                range=f'{user_data["Name"]}!{cell_range}',
+                range=f'{data["Name"]}!{cell_range}',
                 body=body,
             ).execute()
             st.success('created sheet')
@@ -239,24 +236,25 @@ class GoogleServices:
             print(e)
             st.warning('failed to create sheet')
         try:
-            data =[[user_data['Name'], user_data['Username'], PASSWORD, user_data['Flags']]]
-            self.write(data, worksheet_id=LHT_ID, sheet_name='Members', range='A:D')
+            data =[[data['Name'], data['Username'], PASSWORD, data['Flags']]]
+            self.sheets.write_data(data, worksheet_id=LHT_ID, tab_name='Members', range='A:D')
             st.success('added member info')
         except Exception as e:
             print(e)
             st.warning('failed to add member info')
         try:
             data = []
-            data.append(list(user_data.values())[:-1])
+            data.append(list(data.values())[:-1])
             data[0].pop(1)
-            self.write(data, worksheet_id=LST_ID, sheet_name='Main', range='A:K')
+            self.sheets.write_data(data, worksheet_id=LST_ID, tab_name='Main', range='A:K')
             st.success('added member scores')
         except Exception as e:
             print(e)
             st.warning('failed to add member scores')
 
-    def remove_member(self, name: str, worksheet_id=LHT_ID):
-        sheet_id = self.get_sheet_id(name)
+    def remove_member(self, data):
+        worksheet_id = LHT_ID
+        sheet_id = self.get_sheet_id(data['Name'])
         body = {
             "requests": [
                 {
@@ -272,8 +270,8 @@ class GoogleServices:
             ).execute()
         except HTTPError as e:
             print(__name__, e)
-        user_data = self.get_data(columns=None, worksheet_id=LST_ID, sheet_name='Main')
-        index = user_data.index[user_data['Name'] == name].tolist()[0]
+        user_data = self.sheets.get_data(columns=None, worksheet_id=LST_ID, tab_name='Main')
+        index = user_data.index[user_data['Name'] == data['Name']].tolist()[0]
         body = {
             "requests": [
                 {
@@ -293,14 +291,46 @@ class GoogleServices:
                 spreadsheetId=worksheet_id, body=body
             ).execute()
         except HTTPError as e:
-            print(__name__, e)
+            print(e)
+
+    def update_member(self, field, name, index, values):
+        column = ''
+        match field:
+            case 'name':
+                column = 'A'
+            case 'username':
+                column = 'B'
+            case 'password':
+                column = 'C'
+            case 'flags':
+                column = 'D'
+            case _:
+                column = ''
+        body = {'values': values}
+        try:
+            r = self.sheets.spreadsheets().values().update(
+                spreadsheetId=LHT_ID, range=f'{name}!{column}{index}', valueInputOption='USER_ENTERED', body=body,
+            ).execute()
+        except HTTPError as e:
+            print(e)
+            st.warning('error')
+            return e
+
+    def log(self, event, tab_name='Log', worksheet_id=LHT_ID, range='A:D'):
+        self.sheets.write_data(
+            [[str(date.today()),
+            str(datetime.now().strftime("%H:%M:%S")),
+            st.session_state.user['Username'],
+            event]],
+            tab_name=tab_name,
+            worksheet_id=worksheet_id,
+            range=range,
+        )
 
 
 class Authenticator:
     def __init__(self, data):
         self.data = data
-        self.session_variables = ['logged_in', 'user', 'admin', 'dev', 'sg', 'data']
-        initialize_session_state_variables(self.session_variables)
 
     def authenticate(self, username, password):
         data = self.data
@@ -348,7 +378,7 @@ def get_all_monthly_hours():
         hours_done = 0
         data= None
         try:
-            data = service.get_data(columns=['Date', 'Hours'], worksheet_id=LHT_ID, sheet_name=name)
+            data = service.sheets.get_data(columns=['Date', 'Hours'], worksheet_id=LHT_ID, tab_name=name)
         except:
             continue
         if data is None:
@@ -366,7 +396,7 @@ def get_all_monthly_hours():
 
 def calculate_hours_done_this_month(name):
     try:
-        data = service.get_data(columns=['Date', 'Hours'], worksheet_id=LHT_ID, sheet_name=name)
+        data = service.sheets.get_data(columns=['Date', 'Hours'], worksheet_id=LHT_ID, tab_name=name)
     except Exception as e:
         print(e)
         return 0
@@ -447,7 +477,7 @@ def calculate_hours_required(data):
         return 999
 
 def get_subs(supe):
-    df = service.get_data(columns=['Name', 'Supervisor'], worksheet_id=LST_ID, sheet_name="Main", range="A:K")
+    df = service.sheets.get_data(columns=['Name', 'Supervisor'], worksheet_id=LST_ID, tab_name="Main", range="A:K")
     subs = df[df["Supervisor"] == supe]
     return subs
 
@@ -461,6 +491,7 @@ def check_flags():
             st.session_state.admin = True
         if contains(flags, 'dev'):
             st.session_state.dev = True
+            st.session_state.debug = True
         if contains(flags, 'sg'):
             st.session_state.sg = True
     return flags
@@ -532,9 +563,9 @@ def adminbar():
                     }
                     try:
                         service.add_member(user_data)
-                        log(f'added member {username}')
+                        service.log(f'added member {username}')
                     except Exception as e:
-                        print(__name__, e)
+                        print(e)
                         st.error('failed to add member')
 
 
@@ -543,7 +574,7 @@ def adminbar():
             options.append('')
             member = st.selectbox('Select a Member', options=options, index=len(options)-1)
             if member:
-                data = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name=member)
+                data = service.sheets.get_data(columns=None, worksheet_id=LHT_ID, sheet_name=member)
                 button = st.download_button(f'Download Entry History', data=to_excel(data))
                 file_button = st.button('Download Files')
                 if file_button:
@@ -552,9 +583,9 @@ def adminbar():
                 if remove_button:
                     confirm = st.button(f'Confirm Removal of "{member}"')
                     if confirm:
-                        log(f'removed member {username}')
+                        service.log(f'removed member {username}')
 
-        with st.expander('More'):       
+        with st.expander('More'):
             button = st.button('Show Total Month Hours')
             if button:
                 st.session_state.show_total_month_hours = not st.session_state.show_total_month_hours
@@ -564,9 +595,15 @@ def adminbar():
         st.write(f"[Google Drive]({DRIVE_URL})")
 
 def devbar():
+    def _change():
+        st.session_state.debug = not st.session_state.debug
+
     st.sidebar.subheader('Dev')
     with st.sidebar:
         with st.expander('+'):
+            st.write(f'Request Count: {st.session_state.req_count}')
+            st.checkbox('Show Debug', value=st.session_state.debug, on_change=_change())
+            debug(st.session_state.debug)
             drive_id = st.text_input('Drive ID')
             sheet_id = st.text_input('Sheet ID')
             default_pass = st.text_input('Default Password')
@@ -581,7 +618,7 @@ def welcome():
 
 def sidebar():
     def show_dataframe(name):
-        data = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name=name, range='A:D')
+        data = service.sheets.get_data(columns=None, worksheet_id=LHT_ID, tab_name=name, range='A:D')
         if data.empty:
             st.warning('no entries found')
             return
@@ -601,12 +638,12 @@ def sidebar():
                 index = get_user_info_index(st.session_state.user['Name'])
                 try:
                     if username != '':
-                        service.update_username(index, sheet_name='Members', values=[[username]])
-                        log(f'updated username to {username}')
+                        service.update_member(field='username', name='Members', index=index, values=[[username]])
+                        service.log(f'updated username to {username}')
                         del username
                     if password != '':
-                        service.update_password(index, sheet_name='Members', values=[[password]])
-                        log(f'changed their password')
+                        service.update_member(field='password', name='Members', index=index, values=[[password]])
+                        service.log(f'changed their password')
                         del password
                     st.info('info updated')
                 except Exception as e:
@@ -624,9 +661,9 @@ def sidebar():
             if file:
                 with st.spinner('uploading...'):
                     try:
-                        service.upload_file(file, folder=st.session_state.user['Name'])
+                        service.drive.upload_file(file, folder_name=st.session_state.user['Name'])
                         st.sidebar.success('file uploaded')
-                        log(f'uploaded {file.type} file named "{file.name}"')
+                        service.log(f'uploaded {file.type} file named "{file.name}"')
                     except Exception as e:
                         st.sidebar.error('could not upload file :(')
                         raise e
@@ -634,17 +671,19 @@ def sidebar():
 
     def subs():
         with st.expander('My Troops'):
-                subs = st.session_state.subs
-                for sub in subs.to_dict('records'):
-                    sub_data = service.get_data(columns=None, worksheet_id=LST_ID, sheet_name='Main', range='A:K')
-                    sub_data = sub_data.loc[sub_data['Name'] == sub['Name']].to_dict('records')[0]
-                    cols = st.columns((5, 2))
-                    if cols[0].button(sub['Name'], help=tooltip(sub_data)):
-                        show_dataframe(sub['Name'])
-                    hrs_done = calculate_hours_done_this_month(sub['Name'])
-                    hrs_req = calculate_hours_required(sub_data)
-                    color = 'green' if hrs_done >= hrs_req else 'red'
-                    cols[1].markdown(f'<p style="color:{color}">{hrs_done}/{hrs_req} hrs</p>', unsafe_allow_html=True)
+            subs = st.session_state.subs
+            if len(subs) > 0:
+                st.write(f'Showing {calendar.month_name[date.today().month]} {date.today().year} Hours')
+            for sub in subs.to_dict('records'):
+                sub_data = service.sheets.get_data(columns=None, worksheet_id=LST_ID, tab_name='Main', range='A:K')
+                sub_data = sub_data.loc[sub_data['Name'] == sub['Name']].to_dict('records')[0]
+                cols = st.columns((5, 2))
+                if cols[0].button(sub['Name'], help=tooltip(sub_data)):
+                    show_dataframe(sub['Name'])
+                hrs_done = calculate_hours_done_this_month(sub['Name'])
+                hrs_req = calculate_hours_required(sub_data)
+                color = 'green' if hrs_done >= hrs_req else 'red'
+                cols[1].markdown(f'<p style="color:{color}">{hrs_done}/{hrs_req} hrs</p>', unsafe_allow_html=True)
 
     def files():
             with st.expander('My Files'):
@@ -675,15 +714,38 @@ def sidebar():
     def help():
         with st.expander('Help'):
             print(list(st.session_state.help_text))
+
+    def settings():
+        def _check_reminder():
+            if not st.session_state.user['Reminder']:
+                return False
+            return True if st.session_state.user['Reminder'] else False
+
+        def _check_report():
+            if not st.session_state.user['Report']:
+                return False
+            return True if st.session_state.user['Report'] else False
+
+        with st.expander('Preferences'):
+            st.session_state.user['Reminder'] = 'x' if st.checkbox('Receive e-mail reminders', value=_check_reminder()) else ''
+            st.session_state.user['Report'] = 'x' if st.checkbox('Receive monthly reports', value=_check_report()) else ''
+            st.text_input(
+                'Enter email',
+                value=st.session_state.user['Email'] if st.session_state.user['Email'] else '',
+                placeholder='Enter email',
+                type='password',
+            )
+            debug((st.session_state.user['Reminder'], st.session_state.user['Report']))
             
 
     with st.sidebar:
         st.subheader(f'Welcome {welcome()}!')
-        #info()
-        help()
-        upload()
+        if st.session_state.debug: info()
         subs()
-        #files()             
+        upload()
+        if st.session_state.debug: files()
+        if st.session_state.debug: settings() 
+        if st.session_state.debug: help()         
 
 def main_page():
     with st.form('Entry'):
@@ -703,7 +765,7 @@ def main_page():
             name = cols[0].selectbox("Name", options=options, index=len(options)-1)
         date = cols[1].date_input("Date")
         cols = st.columns((2, 1))
-        mods = cols[0].multiselect("Activity", options=['----', 'Listening', 'Reading', 'Speaking', 'Transcription', 'Vocab', 'SLTE', 'DLPT', 'ILTP upload', '623A upload'])
+        mods = cols[0].multiselect("Activity", options=['Listening', 'Reading', 'Speaking', 'Transcription', 'Vocab', 'SLTE', 'DLPT', 'ILTP upload', '623A upload'])
         hours_done = calculate_hours_done_this_month(user['Name'])
         hours_req = calculate_hours_required(scores)
         hours = cols[1].text_input(f"Hours - {hours_done}/{hours_req} hrs completed")
@@ -721,21 +783,21 @@ def main_page():
                 st.warning('you need to describe what you studied...')
                 return
             try:
-                service.write(
+                service.sheets.write_data(
                     worksheet_id=LHT_ID,
-                    sheet_name=name,
+                    tab_name=name,
                     data=[[
                         str(date),
                         float(hours),
-                        ",".join(mods),
+                        ' '.join(mods),
                         desc,
-                        ",".join(vocab.split())
+                        ' '.join(vocab.split() if vocab else '')
                         ]]
                     )
                 st.success('entry submitted!')
                 st.balloons()
-                st.session_state.entries = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name=st.session_state.user['Name'])
-                log(f'submit {hours} hrs')
+                st.session_state.entries = service.sheets.get_data(columns=None, worksheet_id=LHT_ID, tab_name=st.session_state.user['Name'])
+                service.log(f'submit {hours} hrs')
             except Exception as e:
                 st.error('could not submit entry :(')
                 raise e
@@ -746,41 +808,38 @@ def main_page():
         except:
             st.warning('could not load history')
 
-def preload_data():
+def load_data():
     try:
-        st.session_state.help_text = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name='Help', range='A:B')
-        st.session_state.main = service.get_data(columns=None, worksheet_id=LST_ID, sheet_name='Main', range='A:K')
+        st.session_state.help_text = service.sheets.get_data(columns=None, tab_name='Help', worksheet_id=LHT_ID, range='A:B')
+        st.session_state.main = service.sheets.get_data(columns=None, tab_name='Main', worksheet_id=LST_ID, range='A:K')
         st.session_state.subs = get_subs(st.session_state.user['Name'])
-        st.session_state.files = service.get_files(name=st.session_state.user['Name'])
-        st.session_state.members = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name='Members', range='A:D')
-        df = service.get_data(columns=None, worksheet_id=LST_ID, sheet_name='Main', range='A:K')
+        st.session_state.files = service.drive.get_files(folder_name=st.session_state.user['Name'])
+        st.session_state.members = service.sheets.get_data(columns=None, tab_name='Members', worksheet_id=LHT_ID, range='A:D')
+        df = service.sheets.get_data(columns=None, tab_name='Main', worksheet_id=LST_ID, range='A:K')
         st.session_state.scores = df.loc[df['Name'] == st.session_state.user['Name']]
         st.session_state.scores = st.session_state.scores.to_dict('records')[0]
-        st.session_state.entries = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name=st.session_state.user['Name'])
+        st.session_state.entries = service.sheets.get_data(columns=None, worksheet_id=LHT_ID, tab_name=st.session_state.user['Name'])
+        st.session_state.debug = False
         return True
     except IndexError as e:
         print(e)
         return False
 
-def debug():
-    pass
-
-service = GoogleServices(SERVICE_ACCOUNT, SCOPES)
-data = service.get_data(columns=None, worksheet_id=LHT_ID, sheet_name='Members')
-authenticator = Authenticator(data=data)
+service = GServices(SERVICE_ACCOUNT, SCOPES)
+data = service.sheets.get_data(columns=None, worksheet_id=LHT_ID, tab_name='Members')
+auth = Authenticator(data=data)
 
 if st.session_state.logged_in:
-    with st.spinner('loading...'):
-        preload_data()
-        check_flags()
-        main_page()
-        sidebar()
-        if st.session_state.admin:
-            adminbar()
-            admin_main()
-        if st.session_state.dev:
-            devbar()
-        debug()
+    load_data()
+    check_flags()
+    main_page()
+    sidebar()
+    if st.session_state.admin:
+        adminbar()
+        admin_main()
+    if st.session_state.dev:
+        devbar()
 else:
-    authenticator.login()
+    auth.login()
+
 
