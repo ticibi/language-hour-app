@@ -18,9 +18,6 @@ SERVICE_ACCOUNT = st.secrets['SERVICE_ACCOUNT']
 LHT_ID = st.secrets['LHT_ID']
 LST_ID = st.secrets['LST_ID']
 FOLDER_ID = st.secrets['FOLDER_ID']
-LST_URL = st.secrets['LST_URL']
-LHT_URL = st.secrets['LHT_URL']
-DRIVE_URL = st.secrets['DRIVE_URL']
 PASSWORD = st.secrets['PASSWORD']
 MASTER_ID = st.secrets['MASTER_ID']
 SCOPES = [
@@ -128,9 +125,6 @@ class GServices:
                 valueInputOption="USER_ENTERED",
             ).execute()
 
-        def append_data(self, data, tab_name, worksheet_id, range='A:K'):
-            pass
-
         def batch_update(self, body, worksheet_id):
             r = None
             try:
@@ -150,11 +144,11 @@ class GServices:
                 credentials=credentials,
             )
 
-        def create_folder(self, folder_name):
+        def create_folder(self, folder_name, folder_id):
             metadata = {
                 'name': folder_name,
                 'mimeType': 'application/vnd.google-apps.folder',
-                'parents': [FOLDER_ID],
+                'parents': [folder_id],
             }
             folder = None
             try:
@@ -212,9 +206,9 @@ class GServices:
             media = MediaFileUpload(f"temp/{file.name}", mimetype="*/*")
             self.drive.files().create(body=file_metadata, media_body=media, fields="id").execute()
 
-    def add_member(self, data):
+    def add_member(self, data, hour_id, score_id):
         try:
-            self.drive.create_folder(data['Name'])
+            self.drive.create_folder(data['Name'], FOLDER_ID)
             st.success('created folder')
         except Exception as e:
             print(e)
@@ -230,7 +224,7 @@ class GServices:
                 'values': values,
             }
             self.sheets.spreadsheets().values().update(
-                spreadsheetId=LHT_ID,
+                spreadsheetId=hour_id,
                 valueInputOption='USER_ENTERED',
                 range=f'{data["Name"]}!{cell_range}',
                 body=body,
@@ -241,7 +235,7 @@ class GServices:
             st.warning('failed to create sheet')
         try:
             data =[[data['Name'], data['Username'], PASSWORD, data['Flags']]]
-            self.sheets.write_data(data, worksheet_id=LHT_ID, tab_name='Members', range='A:D')
+            self.sheets.write_data(data, worksheet_id=hour_id, tab_name='Members', range='A:D')
             st.success('added member info')
         except Exception as e:
             print(e)
@@ -250,14 +244,14 @@ class GServices:
             data = []
             data.append(list(data.values())[:-1])
             data[0].pop(1)
-            self.sheets.write_data(data, worksheet_id=LST_ID, tab_name='Main', range='A:K')
+            self.sheets.write_data(data, worksheet_id=score_id, tab_name='Main', range='A:K')
             st.success('added member scores')
         except Exception as e:
             print(e)
             st.warning('failed to add member scores')
 
-    def remove_member(self, data):
-        worksheet_id = LHT_ID
+    def remove_member(self, data, hour_id, score_id):
+        worksheet_id = hour_id
         sheet_id = self.get_sheet_id(data['Name'])
         body = {
             "requests": [
@@ -274,7 +268,7 @@ class GServices:
             ).execute()
         except HTTPError as e:
             print(__name__, e)
-        user_data = self.sheets.get_data(columns=None, worksheet_id=LST_ID, tab_name='Main')
+        user_data = self.sheets.get_data(columns=None, worksheet_id=score_id, tab_name='Main')
         index = user_data.index[user_data['Name'] == data['Name']].tolist()[0]
         body = {
             "requests": [
@@ -297,7 +291,7 @@ class GServices:
         except HTTPError as e:
             print(e)
 
-    def update_member(self, field, name, index, values):
+    def update_member(self, field, name, index, values, hour_id):
         column = ''
         match field:
             case 'name':
@@ -313,14 +307,14 @@ class GServices:
         body = {'values': values}
         try:
             r = self.sheets.spreadsheets().values().update(
-                spreadsheetId=LHT_ID, range=f'{name}!{column}{index}', valueInputOption='USER_ENTERED', body=body,
+                spreadsheetId=hour_id, range=f'{name}!{column}{index}', valueInputOption='USER_ENTERED', body=body,
             ).execute()
         except HTTPError as e:
             print(e)
             st.warning('error')
             return e
 
-    def log(self, event, tab_name='Log', worksheet_id=LHT_ID, range='A:D'):
+    def log(self, event, tab_name='Log', worksheet_id='', range='A:D'):
         self.sheets.write_data(
             [[str(date.today()),
             str(datetime.now().strftime("%H:%M:%S")),
@@ -331,7 +325,7 @@ class GServices:
             range=range,
         )
 
-def get_all_monthly_hours():
+def get_all_monthly_hours(sheet_id):
     output = []
     this_month = datetime.now().date().month
     names = st.session_state.members['Name']
@@ -339,7 +333,7 @@ def get_all_monthly_hours():
         hours_done = 0
         data= None
         try:
-            data = service.sheets.get_data(columns=['Date', 'Hours'], worksheet_id=LHT_ID, tab_name=name)
+            data = service.sheets.get_data(columns=['Date', 'Hours'], worksheet_id=st.session_state.config['HourTracker'], tab_name=name)
         except:
             continue
         if data is None:
@@ -357,7 +351,7 @@ def get_all_monthly_hours():
 
 def calculate_hours_done_this_month(name):
     try:
-        data = service.sheets.get_data(columns=['Date', 'Hours'], worksheet_id=LHT_ID, tab_name=name)
+        data = service.sheets.get_data(columns=['Date', 'Hours'], worksheet_id=st.session_state.config['HourTracker'], tab_name=name)
     except Exception as e:
         print(e)
         return 0
@@ -529,7 +523,7 @@ def adminbar():
             options.append('')
             member = st.selectbox('Select a Member', options=options, index=len(options)-1)
             if member:
-                data = service.sheets.get_data(columns=None, worksheet_id=LHT_ID, sheet_name=member)
+                data = service.sheets.get_data(columns=None, worksheet_id=st.session_state.config['HourTracker'], sheet_name=member)
                 button = st.download_button(f'Download Entry History', data=to_excel(data))
                 file_button = st.button('Download Files')
                 if file_button:
@@ -726,7 +720,7 @@ def main_page():
                 return
             try:
                 service.sheets.write_data(
-                    worksheet_id=LHT_ID,
+                    worksheet_id=st.session_state.config['HourTracker'],
                     tab_name=name,
                     data=[[
                         str(date),
@@ -738,7 +732,7 @@ def main_page():
                     )
                 st.success('entry submitted!')
                 st.balloons()
-                st.session_state.entries = service.sheets.get_data(columns=None, worksheet_id=LHT_ID, tab_name=user['Name'])
+                st.session_state.entries = service.sheets.get_data(columns=None, worksheet_id=st.session_state.config['HourTracker'], tab_name=user['Name'])
                 service.log(f'submit {hours} hrs')
             except Exception as e:
                 st.error('could not submit entry :(')
@@ -835,4 +829,3 @@ if st.session_state.authenticated:
         st.write(st.session_state)
 else:
     auth.login()
-
