@@ -324,7 +324,7 @@ class GServices:
         self.sheets.write_data(
             [[str(date.today()),
             str(datetime.now().strftime("%H:%M:%S")),
-            st.session_state.user['Username'],
+            st.session_state.current_user['Username'],
             event]],
             tab_name=tab_name,
             worksheet_id=worksheet_id,
@@ -662,25 +662,25 @@ def sidebar():
 
     def settings():
         def _check_reminder():
-            if not st.session_state.user['Reminder']:
+            if not st.session_state.current_user['Reminder']:
                 return False
-            return True if st.session_state.user['Reminder'] else False
+            return True if st.session_state.current_user['Reminder'] else False
 
         def _check_report():
-            if not st.session_state.user['Report']:
+            if not st.session_state.current_user['Report']:
                 return False
-            return True if st.session_state.user['Report'] else False
+            return True if st.session_state.current_user['Report'] else False
 
         with st.expander('Preferences'):
-            st.session_state.user['Reminder'] = 'x' if st.checkbox('Receive e-mail reminders', value=_check_reminder()) else ''
-            st.session_state.user['Report'] = 'x' if st.checkbox('Receive monthly reports', value=_check_report()) else ''
+            st.session_state.current_user['Reminder'] = 'x' if st.checkbox('Receive e-mail reminders', value=_check_reminder()) else ''
+            st.session_state.current_user['Report'] = 'x' if st.checkbox('Receive monthly reports', value=_check_report()) else ''
             st.text_input(
                 'Enter email',
-                value=st.session_state.user['Email'] if st.session_state.user['Email'] else '',
+                value=st.session_state.current_user['Email'] if st.session_state.current_user['Email'] else '',
                 placeholder='Enter email',
                 type='password',
             )
-            debug((st.session_state.user['Reminder'], st.session_state.user['Report']))
+            debug((st.session_state.current_user['Reminder'], st.session_state.current_user['Report']))
             
     with st.sidebar:
         st.subheader(f'Welcome {welcome()}!')
