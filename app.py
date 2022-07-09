@@ -12,6 +12,8 @@ import inspect
 import calendar
 import os
 
+URL = 'https://docs.google.com/spreadsheets/d/'
+DRIVE = 'https://drive.google.com/drive/u/6/folders/'
 SERVICE_ACCOUNT = st.secrets['SERVICE_ACCOUNT']
 LHT_ID = st.secrets['LHT_ID']
 LST_ID = st.secrets['LST_ID']
@@ -32,7 +34,7 @@ MAIN = 'Main'
 MEMBERS = 'Members'
 
 st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
-session_variables = ['current_user', 'group', 'config', 'req_count', 'debug', 'subs', 'entries', 'files', 'members', 'main', 'scores', 'show_total_month_hours', 'help_text', 'total_month_all', 'logged_in', 'user', 'admin', 'dev', 'sg', 'data']
+session_variables = ['current_user', 'authenticated', 'req_count', 'members', 'config', 'req_count', 'debug', 'score_tracker', 'show_total_month_hours', 'total_month_all',]
 initialize_session_state_variables(session_variables)
 st.session_state.req_count = 0
 
@@ -329,49 +331,6 @@ class GServices:
             range=range,
         )
 
-
-class Authenticator:
-    def __init__(self, data):
-        self.data = data
-
-    def authenticate(self, username, password):
-        data = self.data
-        if data is not None:
-            try:
-                user = data.loc[data['Username'] == username]
-            except:
-                st.error('incorrect username or password :(')
-            try:
-                user = user.to_dict('records')[0]
-            except:
-                st.error('user does not exist')
-                return
-            if user['Password'] == password:
-                user.pop('Password')
-                st.session_state.user = user
-                st.session_state.logged_in = True
-            else:
-                st.error('incorrect username or password')
-        else:
-            st.session_state.user = None
-            st.session_state.logged_in = False
-
-    def login(self, header='Login'):
-        if not st.session_state.logged_in:
-            with st.form(header):
-                st.subheader(header)
-                username = st.text_input('Username').lower()
-                password = st.text_input('Password', type='password')
-                login = st.form_submit_button(header)
-                if login:
-                    self.authenticate(username, password)
-
-    def logout(self):
-        for i, var in enumerate(self.session_variables):
-            self.session_variables[i] = None
-            st.session_state[var] = None
-
-
 def get_all_monthly_hours():
     output = []
     this_month = datetime.now().date().month
@@ -430,10 +389,10 @@ def calculate_hours_required(data):
                 value = 6,
             case '4.0': 
                 value = 8,
-            case _: 
-                if score >= 6:
+            case _:
+                if float(score) >= 6:
                     value = 0
-                elif score < 4:
+                elif float(score) < 4:
                     value = 12
         return value
 
@@ -480,51 +439,43 @@ def calculate_hours_required(data):
     else:
         return 999
 
-def get_subs(supe):
-    df = service.sheets.get_data(columns=['Name', 'Supervisor'], worksheet_id=LST_ID, tab_name="Main", range="A:K")
-    subs = df[df["Supervisor"] == supe]
-    return subs
-
-def check_flags():
-    '''returns list of flags'''
-    data = st.session_state.members
-    flags = data.query(f'Name == "{st.session_state.user["Name"]}"')['Flags']
-    flags = flags.tolist()[0]
-    if flags != None:
-        if contains(flags, 'admin'):
-            st.session_state.admin = True
-        if contains(flags, 'dev'):
-            st.session_state.dev = True
-            st.session_state.debug = True
-        if contains(flags, 'sg'):
-            st.session_state.sg = True
-    return flags
+def load_subs():
+    st.session_state.current_user['Subs'] = {}
+    worksheet = st.session_state.config['HourTracker']
+    name = st.session_state.current_user['Name']
+    subs = st.session_state.score_tracker.query(f'Supervisor == "{name}"')['Name'].tolist()
+    for sub in subs:
+        st.session_state.current_user['Subs'].update({sub: {'Scores': None, 'Entries': None}})
+        scores = st.session_state.score_tracker.query(f'Name == "{sub}"').to_dict('records')[0]
+        st.session_state.current_user['Subs'][sub]['Scores'] = scores
+        st.session_state.current_user['Subs'][sub]['Entries'] = service.sheets.get_data(columns=None, tab_name=sub, worksheet_id=worksheet)
 
 def admin_main():
     if st.session_state.show_total_month_hours:
         with st.expander(f'Total Month Hours - {calendar.month_name[date.today().month]} {date.today().year}', expanded=True):
-            with st.spinner('loading data...'):
+            with st.spinner('calculating who done messed up...'):
                 if st.session_state.total_month_all:
                     df = pd.DataFrame(st.session_state.total_month_all, columns=['Comments', 'Met', 'Name', 'Hours Done', 'Hours Required'])
                     st.table(df)
                 else:
                     data = []
-                    hrs_done = None
-                    hrs_req = None
-                    user_data = None
-                    check = None
                     for name in st.session_state.members['Name']:
-                        hrs_done = calculate_hours_done_this_month(name)
                         try:
-                            user_data = st.session_state.main.loc[st.session_state.main['Name'] == name].to_dict('records')[0]
+                            user_data = st.session_state.score_tracker.loc[st.session_state.score_tracker['Name'] == name].to_dict('records')[0]
                             hrs_req = calculate_hours_required(user_data)
-                        except:
-                            pass
-                        if float(hrs_done) >= float(hrs_req):
-                            check = '✅'
-                        else:
-                            check = '❌'
-                        data.append(['', check, name, hrs_done, hrs_req])
+                        except Exception as e:
+                            print(e)
+                            hrs_req = 0
+                        try:
+                            hrs_done = calculate_hours_done_this_month(name)
+                        except Exception as e:
+                            print(e)
+                            hrs_done = 0
+                        check = {
+                            True: '✅',
+                            False: '❌',
+                        }
+                        data.append(['', check[float(hrs_done) >= float(hrs_req)], name, hrs_done, hrs_req])
                     df = pd.DataFrame(data, columns=['Comments', 'Met', 'Name', 'Hours Done', 'Hours Required'])
                     st.table(df)
                     st.session_state.total_month_all = data
@@ -534,7 +485,7 @@ def adminbar():
     with st.sidebar:
         with st.expander('Add Member'):
             with st.form('Add Member'):
-                data = st.session_state.main
+                data = st.session_state.score_tracker
                 name = st.text_input(label="Name", placeholder="Last, First")
                 username = st.text_input(label="Username", placeholder="jsmith")
                 clang = st.selectbox(label="CLang", options=["AP", "AD", "DG",])
@@ -594,9 +545,9 @@ def adminbar():
             if button:
                 st.session_state.show_total_month_hours = not st.session_state.show_total_month_hours
 
-        st.write(f"[Language Score Tracker]({LST_URL})")
-        st.write(f"[Language Hour Tracker]({LHT_URL})")
-        st.write(f"[Google Drive]({DRIVE_URL})")
+        st.write(f"[Language Score Tracker]({URL+st.session_state.config['ScoreTracker']})")
+        st.write(f"[Language Hour Tracker]({URL+st.session_state.config['HourTracker']})")
+        st.write(f"[Google Drive]({DRIVE+st.session_state.config['GoogleDrive']})")
 
 def devbar():
     def _change():
@@ -618,15 +569,10 @@ def get_user_info_index(name):
     return index + 1
 
 def welcome():
-    return '🦢 Silly Goose' if st.session_state.sg else st.session_state.user['Name']
+    return '🦢 Silly Goose' if contains(st.session_state.current_user['Flags'], 'sg') else st.session_state.current_user['Name']
 
 def sidebar():
-    def show_dataframe(name):
-        data = service.sheets.get_data(columns=None, worksheet_id=LHT_ID, tab_name=name, range='A:D')
-        if data.empty:
-            st.warning('no entries found')
-            return
-        st.table(data)
+    user = st.session_state.current_user
 
     def tooltip(data):
         output = f'CL: {data["CL - Listening"]} MSA: {data["MSA - Listening"]}/{data["MSA - Reading"]} (click to view entries)'
@@ -634,12 +580,12 @@ def sidebar():
 
     def info():
         with st.expander('My Info'):
-            st.text_input('Name', value=st.session_state.user['Name'], disabled=True)
-            username = st.text_input('Username', value=st.session_state.user['Username'])
+            st.text_input('Name', value=user['Name'], disabled=True)
+            username = st.text_input('Username', value=user['Username'])
             password = st.text_input('Password', placeholder='enter a new password')
             button = st.button('Save')
             if button:
-                index = get_user_info_index(st.session_state.user['Name'])
+                index = get_user_info_index(user['Name'])
                 try:
                     if username != '':
                         service.update_member(field='username', name='Members', index=index, values=[[username]])
@@ -657,7 +603,7 @@ def sidebar():
     def upload():
         with st.expander('Upload/Download Files'):
             try:
-                st.download_button('📥 Download myLanguageHours', data=to_excel(st.session_state.entries))
+                st.download_button('📥 Download myLanguageHours', data=to_excel(user['Entries']))
             except:
                 pass
             file = st.file_uploader('Upload 623A or ILTP', type=['pdf', 'txt', 'docx'])
@@ -665,7 +611,7 @@ def sidebar():
             if file:
                 with st.spinner('uploading...'):
                     try:
-                        service.drive.upload_file(file, folder_name=st.session_state.user['Name'])
+                        service.drive.upload_file(file, folder_name=user['Name'])
                         st.sidebar.success('file uploaded')
                         service.log(f'uploaded {file.type} file named "{file.name}"')
                     except Exception as e:
@@ -675,43 +621,40 @@ def sidebar():
 
     def subs():
         with st.expander('My Troops'):
-            subs = st.session_state.subs
-            if subs is None:
+            if user['Subs'] is None:
                 return
-            for sub in subs.to_dict('records'):
-                sub_data = service.sheets.get_data(columns=None, worksheet_id=LST_ID, tab_name='Main', range='A:K')
-                sub_data = sub_data.loc[sub_data['Name'] == sub['Name']].to_dict('records')[0]
+            for sub in user['Subs'].keys():
                 cols = st.columns((5, 2))
-                if cols[0].button(sub['Name'], help=tooltip(sub_data)):
-                    show_dataframe(sub['Name'])
-                hrs_done = calculate_hours_done_this_month(sub['Name'])
-                hrs_req = calculate_hours_required(sub_data)
+                if cols[0].button(sub, help=tooltip(user['Subs'][sub]['Scores'])):
+                    st.table(user['Subs'][sub]['Entries'])
+                hrs_done = calculate_hours_done_this_month(sub)
+                hrs_req = calculate_hours_required(user['Subs'][sub]['Scores'])
                 color = 'green' if hrs_done >= hrs_req else 'red'
                 cols[1].markdown(f'<p style="color:{color}">{hrs_done}/{hrs_req} hrs</p>', unsafe_allow_html=True)
 
     def files():
-            with st.expander('My Files'):
-                files = st.session_state.files
-                if not files:
-                    st.sidebar.warning('no files')
-                else:
-                    for file in files:
-                        if st.button(file['name'], key=file['id']):
-                            try:
-                                r = service.drive.drive.files().get_media(fileId=file['id'])
-                                file_bytes = BytesIO()
-                                download = MediaIoBaseDownload(file_bytes, r)
-                                done = False
-                                while done is False:
-                                    status, done = download.next_chunk()
-                                    st.progress(value=status.progress())
-                            except HTTPError as e:
-                                print(e)
-                                file_bytes = None
-                                st.warning('failed to load file')
-                            with open(f"temp/{file['name']}", "wb") as f:
-                                f.write(file_bytes.getbuffer())
-                            os.remove(f"temp/{file['name']}")
+        with st.expander('My Files'):
+            files = user['Files']
+            if not files:
+                st.sidebar.warning('no files')
+            else:
+                for file in files:
+                    if st.button(file['name'], key=file['id']):
+                        try:
+                            r = service.drive.drive.files().get_media(fileId=file['id'])
+                            file_bytes = BytesIO()
+                            download = MediaIoBaseDownload(file_bytes, r)
+                            done = False
+                            while done is False:
+                                status, done = download.next_chunk()
+                                st.progress(value=status.progress())
+                        except HTTPError as e:
+                            print(e)
+                            file_bytes = None
+                            st.warning('failed to load file')
+                        with open(f"temp/{file['name']}", "wb") as f:
+                            f.write(file_bytes.getbuffer())
+                        os.remove(f"temp/{file['name']}")
 
     def help():
         with st.expander('Help'):
@@ -739,7 +682,6 @@ def sidebar():
             )
             debug((st.session_state.user['Reminder'], st.session_state.user['Report']))
             
-
     with st.sidebar:
         st.subheader(f'Welcome {welcome()}!')
         if st.session_state.debug: info()
@@ -753,23 +695,21 @@ def main_page():
     with st.form('Entry'):
         name = ''
         st.subheader('Language Hour Entry')
-        user = st.session_state.user
-        scores = st.session_state.scores
-        subs = st.session_state.subs
+        user = st.session_state.current_user
         cols = st.columns((2, 1))
-        if st.session_state.admin:
+        if contains(st.session_state.current_user['Flags'], 'admin'):
             options = list(st.session_state.members['Name'])
             index = options.index(user['Name'])
             name = cols[0].selectbox("Name", options=options, index=index)
         else:
-            options = list(subs['Name'])
+            options = list(user['Subs'].keys())
             options.append(user['Name'])
             name = cols[0].selectbox("Name", options=options, index=len(options)-1)
         date = cols[1].date_input("Date")
         cols = st.columns((2, 1))
         mods = cols[0].multiselect("Activity", options=['Listening', 'Reading', 'Speaking', 'Transcription', 'Vocab', 'SLTE', 'DLPT', 'ILTP upload', '623A upload'])
         hours_done = calculate_hours_done_this_month(user['Name'])
-        hours_req = calculate_hours_required(scores)
+        hours_req = calculate_hours_required(user['Scores'])
         hours = cols[1].text_input(f"Hours - {hours_done}/{hours_req} hrs completed")
         cols = st.columns((2, 1))
         desc = cols[0].text_area("Description", height=150, placeholder='be detailed!')
@@ -798,70 +738,101 @@ def main_page():
                     )
                 st.success('entry submitted!')
                 st.balloons()
-                st.session_state.entries = service.sheets.get_data(columns=None, worksheet_id=LHT_ID, tab_name=st.session_state.user['Name'])
+                st.session_state.entries = service.sheets.get_data(columns=None, worksheet_id=LHT_ID, tab_name=user['Name'])
                 service.log(f'submit {hours} hrs')
             except Exception as e:
                 st.error('could not submit entry :(')
                 raise e
 
     with st.expander('Show my Language Hour history'):
-        try:
-            st.table(st.session_state.entries)
-        except:
-            st.warning('could not load history')
-
-def load_data():
-    st.session_state.help_text = service.sheets.get_data(columns=None, tab_name='Help', worksheet_id=LHT_ID, range='A:B')
-    st.session_state.main = service.sheets.get_data(columns=None, tab_name='Main', worksheet_id=LST_ID, range='A:K')
-    try:
-        st.session_state.subs = get_subs(st.session_state.user['Name'])
-    except:
-        st.session_state.subs = None
-    try:
-        st.session_state.files = service.drive.get_files(folder_name=st.session_state.user['Name'])
-    except:
-        st.session_state.files = None
-    st.session_state.members = service.sheets.get_data(columns=None, tab_name='Members', worksheet_id=LHT_ID, range='A:D')
-    df = service.sheets.get_data(columns=None, tab_name='Main', worksheet_id=LST_ID, range='A:K')
-    try:
-        st.session_state.scores = df.loc[df['Name'] == st.session_state.user['Name']]
-        st.session_state.scores = st.session_state.scores.to_dict('records')[0]
-    except:
-        st.session_state.scores = None
-    try:
-        st.session_state.entries = service.sheets.get_data(columns=None, worksheet_id=LHT_ID, tab_name=st.session_state.user['Name'])
-    except:
-        st.session_state.entries = None
-    st.session_state.debug = False
+        st.table(user['Entries'])
 
 def load():
-    # group contains groupname, member names, scores (admin)
     try:
-        st.session_state.master = service.sheets.get_data(columns=None, tab_name=MEMBERS, worksheet_id=MASTER_ID)
-    except:
-        st.session_state.master = None
-    # contains IDs for sheets, etc
-    # config is required
-    try:
-        group = st.session_state.user["Group"]
-        st.session_state.config = service.sheets.get_data(columns=None, tab_name=INFO, worksheet_id=MASTER_ID).query(f'Group == "{group}"')
+        group = st.session_state.current_user['Group']
+        data = service.sheets.get_data(columns=None, tab_name=INFO, worksheet_id=MASTER_ID)
+        st.session_state.config = data.query(f'Group == "{group}"').to_dict('records')[0]
     except:
         st.session_state.config = None
 
-service = GServices(SERVICE_ACCOUNT, SCOPES)
-data = service.sheets.get_data(columns=None, worksheet_id=LHT_ID, tab_name='Members')
-auth = Authenticator(data=data)
+    try:
+        all_scores = service.sheets.get_data(columns=None, tab_name=MAIN, worksheet_id=st.session_state.config['ScoreTracker'])
+        st.session_state.score_tracker = all_scores
+    except:
+        st.session_state.score_tracker = None
 
-if st.session_state.logged_in:
-    load_data()
-    check_flags()
+    try:
+        user_scores = st.session_state.score_tracker.query(f'Name == "{st.session_state.current_user["Name"]}"').to_dict('records')[0]
+        user_scores.pop('Name')
+        st.session_state.current_user['Scores'] = user_scores
+    except:
+        st.session_state.current_user['Scores'] = None
+
+    try:
+        name = st.session_state.current_user['Name']
+        worksheet = st.session_state.config['HourTracker']
+        st.session_state.current_user['Entries'] = service.sheets.get_data(columns=None, tab_name=name, worksheet_id=worksheet)
+    except:
+        st.session_state.current_user['Entries'] = None
+
+    try:
+        st.session_state.current_user['Files'] = service.drive.get_files(st.session_state.current_user['Name'])
+    except:
+        st.session_state.current_user['Files'] = None
+    
+    load_subs()
+
+class Authenticator:
+    def __init__(self):
+        pass
+
+    def authenticate(self, username, password):
+        try:
+            data = service.sheets.get_data(columns=None, tab_name=MEMBERS, worksheet_id=MASTER_ID, range='A:H')
+            st.session_state.members = data.drop(columns=['Password'], axis=1)
+            user_data = data.query(f'Username == "{username}"').to_dict('records')[0]
+        except:
+            st.error('could not retrieve user data')
+            return
+        
+        if password == user_data['Password']:
+            user_data.pop('Password')
+            st.session_state.current_user = user_data
+            st.session_state.authenticated = True
+        else:
+            st.error('incorrect username or password')
+            st.session_state.authenticated = False
+
+    def login(self, header='Login'):
+        if not st.session_state.authenticated:
+            with st.form(header):
+                st.subheader(header)
+                username = st.text_input('Username').lower()
+                password = st.text_input('Password', type='password')
+                login = st.form_submit_button(header)
+                if login:
+                    self.authenticate(username, password)
+
+    def logout(self):
+        for i, var in enumerate(self.session_variables):
+            self.session_variables[i] = None
+            st.session_state[var] = None
+
+service = GServices(SERVICE_ACCOUNT, SCOPES)
+auth = Authenticator()
+
+if st.session_state.authenticated:
+    with st.spinner('loading...'):
+        load()
     main_page()
     sidebar()
-    if st.session_state.admin:
+    if contains(st.session_state.current_user['Flags'], 'admin'):
         adminbar()
         admin_main()
-    if st.session_state.dev:
+    if contains(st.session_state.current_user['Flags'], 'dev'):
+        st.session_state.debug = True
         devbar()
+        st.write(st.session_state)
 else:
     auth.login()
 
