@@ -20,15 +20,19 @@ LST_URL = st.secrets['LST_URL']
 LHT_URL = st.secrets['LHT_URL']
 DRIVE_URL = st.secrets['DRIVE_URL']
 PASSWORD = st.secrets['PASSWORD']
+MASTER_ID = st.secrets['MASTER_ID']
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/drive.file",
     "https://www.googleapis.com/auth/drive.metadata",
 ]
+INFO = 'Info'
+MAIN = 'Main'
+MEMBERS = 'Members'
 
 st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
-session_variables = ['req_count', 'debug', 'subs', 'entries', 'files', 'members', 'main', 'scores', 'show_total_month_hours', 'help_text', 'total_month_all', 'logged_in', 'user', 'admin', 'dev', 'sg', 'data']
+session_variables = ['current_user', 'group', 'config', 'req_count', 'debug', 'subs', 'entries', 'files', 'members', 'main', 'scores', 'show_total_month_hours', 'help_text', 'total_month_all', 'logged_in', 'user', 'admin', 'dev', 'sg', 'data']
 initialize_session_state_variables(session_variables)
 st.session_state.req_count = 0
 
@@ -405,6 +409,8 @@ def calculate_hours_done_this_month(name):
     return hours
 
 def calculate_hours_required(data):
+    if data is None:
+        return 0
     def to_value(score:str):
         total: float = 0.0
         if '+' in score:
@@ -670,8 +676,8 @@ def sidebar():
     def subs():
         with st.expander('My Troops'):
             subs = st.session_state.subs
-            if len(subs) > 0:
-                st.write(f'Showing {calendar.month_name[date.today().month]} {date.today().year} Hours')
+            if subs is None:
+                return
             for sub in subs.to_dict('records'):
                 sub_data = service.sheets.get_data(columns=None, worksheet_id=LST_ID, tab_name='Main', range='A:K')
                 sub_data = sub_data.loc[sub_data['Name'] == sub['Name']].to_dict('records')[0]
@@ -703,10 +709,8 @@ def sidebar():
                                 print(e)
                                 file_bytes = None
                                 st.warning('failed to load file')
-    #
                             with open(f"temp/{file['name']}", "wb") as f:
                                 f.write(file_bytes.getbuffer())
-                                #uie.display_file(file['name'])
                             os.remove(f"temp/{file['name']}")
 
     def help():
@@ -807,21 +811,42 @@ def main_page():
             st.warning('could not load history')
 
 def load_data():
+    st.session_state.help_text = service.sheets.get_data(columns=None, tab_name='Help', worksheet_id=LHT_ID, range='A:B')
+    st.session_state.main = service.sheets.get_data(columns=None, tab_name='Main', worksheet_id=LST_ID, range='A:K')
     try:
-        st.session_state.help_text = service.sheets.get_data(columns=None, tab_name='Help', worksheet_id=LHT_ID, range='A:B')
-        st.session_state.main = service.sheets.get_data(columns=None, tab_name='Main', worksheet_id=LST_ID, range='A:K')
         st.session_state.subs = get_subs(st.session_state.user['Name'])
+    except:
+        st.session_state.subs = None
+    try:
         st.session_state.files = service.drive.get_files(folder_name=st.session_state.user['Name'])
-        st.session_state.members = service.sheets.get_data(columns=None, tab_name='Members', worksheet_id=LHT_ID, range='A:D')
-        df = service.sheets.get_data(columns=None, tab_name='Main', worksheet_id=LST_ID, range='A:K')
+    except:
+        st.session_state.files = None
+    st.session_state.members = service.sheets.get_data(columns=None, tab_name='Members', worksheet_id=LHT_ID, range='A:D')
+    df = service.sheets.get_data(columns=None, tab_name='Main', worksheet_id=LST_ID, range='A:K')
+    try:
         st.session_state.scores = df.loc[df['Name'] == st.session_state.user['Name']]
         st.session_state.scores = st.session_state.scores.to_dict('records')[0]
+    except:
+        st.session_state.scores = None
+    try:
         st.session_state.entries = service.sheets.get_data(columns=None, worksheet_id=LHT_ID, tab_name=st.session_state.user['Name'])
-        st.session_state.debug = False
-        return True
-    except IndexError as e:
-        print(e)
-        return False
+    except:
+        st.session_state.entries = None
+    st.session_state.debug = False
+
+def load():
+    # group contains groupname, member names, scores (admin)
+    try:
+        st.session_state.master = service.sheets.get_data(columns=None, tab_name=MEMBERS, worksheet_id=MASTER_ID)
+    except:
+        st.session_state.master = None
+    # contains IDs for sheets, etc
+    # config is required
+    try:
+        group = st.session_state.user["Group"]
+        st.session_state.config = service.sheets.get_data(columns=None, tab_name=INFO, worksheet_id=MASTER_ID).query(f'Group == "{group}"')
+    except:
+        st.session_state.config = None
 
 service = GServices(SERVICE_ACCOUNT, SCOPES)
 data = service.sheets.get_data(columns=None, worksheet_id=LHT_ID, tab_name='Members')
@@ -839,5 +864,4 @@ if st.session_state.logged_in:
         devbar()
 else:
     auth.login()
-
 
