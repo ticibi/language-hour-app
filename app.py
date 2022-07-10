@@ -326,24 +326,12 @@ class GServices:
         st.session_state.current_user['Entries'] = service.sheets.get_data(columns=None, tab_name=name, worksheet_id=worksheet_id)
 
 
-class Entry:
-    ''''''
-    def __init__(self, date='', hours='', activity='', description='', vocab=''):
-        self.data = {
-            'date': date,
-            'hours': hours,
-            'activity': activity,
-            'description': description,
-            'vocab': vocab,
-        }
-
-    def as_list(self):
-        return list(self.data.values())
-
-
 class Pages:
     def __init__(self):
         pass
+
+    def welcome_message(self):
+        return '🦢 Silly Goose' if contains(st.session_state.current_user['Flags'], 'sg') else st.session_state.current_user['Name']
 
     def entry_page(self):
         def check_submission():
@@ -517,7 +505,7 @@ class Pages:
                 debug((st.session_state.current_user['Reminder'], st.session_state.current_user['Report']))
                 
         with st.sidebar:
-            st.subheader(f'Welcome {welcome()}!')
+            st.subheader(f'Welcome {self.welcome_message()}!')
             if st.session_state.debug: info()
             subs()
             upload()
@@ -788,9 +776,6 @@ def get_user_info_index(name):
     df = st.session_state.members
     index = df.loc[df['Name'] ==  name].index[0]
     return index + 1
-
-def welcome():
-    return '🦢 Silly Goose' if contains(st.session_state.current_user['Flags'], 'sg') else st.session_state.current_user['Name']
 
 def load():
     name = st.session_state.current_user['Name']
