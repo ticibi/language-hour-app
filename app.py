@@ -390,8 +390,25 @@ class Pages:
                     raise e
 
         with st.expander('Show my Language Hour history'):
-            service.update_entries(user['Name'], worksheet_id=st.session_state.config['HourTracker'])
-            st.table(user['Entries'])
+            try:
+                service.update_entries(user['Name'], worksheet_id=st.session_state.config['HourTracker'])
+                st.table(user['Entries'])
+            except:
+                pass
+
+        with st.expander('My Troops'):
+            if user['Subs'] is None:
+                return
+            for sub in user['Subs'].keys():
+                hrs_done = calculate_hours_done_this_month(sub)
+                hrs_req = calculate_hours_required(user['Subs'][sub]['Scores'])
+                color = 'green' if hrs_done >= hrs_req else 'red'
+                st.markdown(f'{sub} <p style="color:{color}">{hrs_done}/{hrs_req} hrs</p>', unsafe_allow_html=True)
+                scores = user['Subs'][sub]['Scores']
+                del scores['Supervisor']
+                del scores['Name']
+                st.table(pd.DataFrame(scores, index=[0]))
+                st.table(user['Subs'][sub]['Entries'])
 
     def sidebar(self):
         user = st.session_state.current_user
@@ -448,7 +465,7 @@ class Pages:
                 for sub in user['Subs'].keys():
                     cols = st.columns((5, 2))
                     if cols[0].button(sub, help=tooltip(user['Subs'][sub]['Scores'])):
-                        st.table(user['Subs'][sub]['Entries'])
+                        pass
                     hrs_done = calculate_hours_done_this_month(sub)
                     hrs_req = calculate_hours_required(user['Subs'][sub]['Scores'])
                     color = 'green' if hrs_done >= hrs_req else 'red'
@@ -503,7 +520,7 @@ class Pages:
                     type='password',
                 )
                 debug((st.session_state.current_user['Reminder'], st.session_state.current_user['Report']))
-                
+
         with st.sidebar:
             st.subheader(f'Welcome {self.welcome_message()}!')
             if st.session_state.debug: info()
@@ -601,7 +618,7 @@ class Pages:
                     if remove_button:
                         confirm = st.button(f'Confirm Removal of "{member}"')
                         if confirm:
-                            service.log(f'removed member {username}')
+                            service.log(f'removed member {member}', worksheet_id=st.session_state.config['HourTracker'])
 
         with st.sidebar:
             add_member()
@@ -609,8 +626,12 @@ class Pages:
             with st.expander('More'):
                 if st.button('Show Total Month Hours'):
                     st.session_state.show_total_month_hours = not st.session_state.show_total_month_hours
+                if st.button('Show upcoming DLPTs'):
+                    pass
+                if st.button('Show upcoming SLTEs'):
+                    pass
             
-            st.write(f"[Tracker]({URL+MASTER_ID})")
+            st.write(f"[Member Tracker]({URL+MASTER_ID})")
             st.write(f"[Score Tracker]({URL+st.session_state.config['ScoreTracker']})")
             st.write(f"[Hour Tracker]({URL+st.session_state.config['HourTracker']})")
             st.write(f"[Google Drive]({DRIVE+st.session_state.config['GoogleDrive']})")
@@ -644,7 +665,6 @@ class Authenticator:
             data = service.sheets.get_data(columns=None, tab_name=MEMBERS, worksheet_id=MASTER_ID, range='A:H')
             user_data = data.query(f'Username == "{username}"').to_dict('records')[0]
             st.session_state.members = data.query(f'Group == "{user_data["Group"]}"').drop(columns=['Password'], axis=1)
-            print(st.session_state.members)
         except Exception as e:
             st.error('could not retrieve user data')
             print(e)
@@ -675,6 +695,36 @@ class Authenticator:
             self.session_variables[i] = None
             st.session_state[var] = None
 
+
+def check_due_date(scores: dict) -> tuple:
+    '''return dlpt due and slte due'''
+    str_format = '%m/%d/%Y'
+    year = 31536000.0
+    month = 2628000.0
+    try:
+        dlpt_last = datetime.strptime(scores['DLPT Date'], str_format).timestamp()
+    except:
+        dlpt_last = None
+    try:
+        slte_last = datetime.strptime(scores['SLTE Date'], str_format).timestamp()
+    except:
+        slte_last = None
+    if scores['CLang'] in ['AD']:
+        if scores['MSA - Listening'] == '3' and ['MSA - Reading'] == '3':
+            dltp_due = dlpt_last + (year * 2) if slte_last is not None else dlpt_last
+            slte_due = slte_last + (year * 2) if slte_last is not None else slte_last
+        else:
+            dltp_due = dlpt_last + year if slte_last is not None else dlpt_last
+            slte_due = slte_last + (year + (month * 6)) if slte_last is not None else slte_last
+    elif scores['CLang'] in ['AP', 'DG']:
+        if scores['CL - Listening'] == '3' and ['MSA - Reading'] == '3':
+            dltp_due = dlpt_last + (year * 2) if slte_last is not None else dlpt_last
+            slte_due = slte_last + (year * 2) if slte_last is not None else slte_last
+        else:
+            dltp_due = dlpt_last + year if slte_last is not None else dlpt_last
+            slte_due = slte_last + (year + (month * 6)) if slte_last is not None else slte_last
+    output = (str(datetime.fromtimestamp(dltp_due))[:10], str(datetime.fromtimestamp(slte_due))[:10])
+    return output
 
 def debug(text):
     if not st.session_state.debug:
@@ -831,22 +881,25 @@ if __name__ == '__main__':
         try:
             pages.sidebar()
             pages.entry_page()
-        except:
+        except Exception as e:
             st.error('could not load page')
+            print(e)
 
         if contains(st.session_state.current_user['Flags'], 'admin'):
             try:
                 pages.admin_sidebar()
                 pages.admin_page()
-            except:
+            except Exception as e:
                 st.error('could not load page')
+                print(e)
 
         if contains(st.session_state.current_user['Flags'], 'dev'):
             st.session_state.debug = True
             try:
                 pages.dev_sidebar()
                 pages.dev_page()
-            except:
+            except Exception as e:
                 st.error('could not load page')
+                print(e)
     else:
         auth.login()
