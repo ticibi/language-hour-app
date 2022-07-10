@@ -34,7 +34,7 @@ MEMBERS = 'Members'
 
 
 st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
-session_variables = ['current_user', 'authenticated', 'req_count', 'members', 'config', 'req_count', 'debug', 'score_tracker', 'show_total_month_hours', 'total_month_all',]
+session_variables = ['current_user', 'authenticated', 'current_group', 'req_count', 'members', 'config', 'req_count', 'debug', 'score_tracker', 'show_total_month_hours', 'total_month_all',]
 initialize_session_state_variables(session_variables)
 st.session_state.req_count = 0
         
@@ -545,7 +545,7 @@ class Pages:
 
     def admin_sidebar(self):
         st.sidebar.subheader('Admin')
-        with st.sidebar:
+        def add_member():
             with st.expander('Add Member'):
                 with st.form('Add Member'):
                     data = st.session_state.score_tracker
@@ -586,6 +586,7 @@ class Pages:
                             print(e)
                             st.error('failed to add member')
 
+        def member_things():
             with st.expander('Members'):
                 options = list(st.session_state.members['Name'])
                 options.append('')
@@ -602,14 +603,16 @@ class Pages:
                         if confirm:
                             service.log(f'removed member {username}')
 
+        with st.sidebar:
+            add_member()
+            member_things()
             with st.expander('More'):
-                button = st.button('Show Total Month Hours')
-                if button:
+                if st.button('Show Total Month Hours'):
                     st.session_state.show_total_month_hours = not st.session_state.show_total_month_hours
-
+            
             st.write(f"[Tracker]({URL+MASTER_ID})")
-            st.write(f"[Language Score Tracker]({URL+st.session_state.config['ScoreTracker']})")
-            st.write(f"[Language Hour Tracker]({URL+st.session_state.config['HourTracker']})")
+            st.write(f"[Score Tracker]({URL+st.session_state.config['ScoreTracker']})")
+            st.write(f"[Hour Tracker]({URL+st.session_state.config['HourTracker']})")
             st.write(f"[Google Drive]({DRIVE+st.session_state.config['GoogleDrive']})")
 
     def dev_page(self):
@@ -639,8 +642,9 @@ class Authenticator:
     def authenticate(self, username, password):
         try:
             data = service.sheets.get_data(columns=None, tab_name=MEMBERS, worksheet_id=MASTER_ID, range='A:H')
-            st.session_state.members = data.drop(columns=['Password'], axis=1)
             user_data = data.query(f'Username == "{username}"').to_dict('records')[0]
+            st.session_state.members = data.query(f'Group == "{user_data["Group"]}"').drop(columns=['Password'], axis=1)
+            print(st.session_state.members)
         except Exception as e:
             st.error('could not retrieve user data')
             print(e)
@@ -780,6 +784,7 @@ def get_user_info_index(name):
 def load():
     name = st.session_state.current_user['Name']
     group = st.session_state.current_user['Group']
+    st.session_state.current_group = group
 
     try:
         data = service.sheets.get_data(columns=None, tab_name=INFO, worksheet_id=MASTER_ID)
@@ -824,23 +829,23 @@ if __name__ == '__main__':
         with st.spinner('loading...'):
             load()
         try:
-            pages.entry_page()
             pages.sidebar()
+            pages.entry_page()
         except:
             st.error('could not load page')
 
         if contains(st.session_state.current_user['Flags'], 'admin'):
             try:
-                pages.admin_page()
                 pages.admin_sidebar()
+                pages.admin_page()
             except:
                 st.error('could not load page')
 
         if contains(st.session_state.current_user['Flags'], 'dev'):
             st.session_state.debug = True
             try:
-                pages.dev_page()
                 pages.dev_sidebar()
+                pages.dev_page()
             except:
                 st.error('could not load page')
     else:
