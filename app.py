@@ -37,12 +37,6 @@ st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="c
 session_variables = ['current_user', 'authenticated', 'req_count', 'members', 'config', 'req_count', 'debug', 'score_tracker', 'show_total_month_hours', 'total_month_all',]
 initialize_session_state_variables(session_variables)
 st.session_state.req_count = 0
-
-
-def debug(text):
-    if not st.session_state.debug:
-        return
-    st.write(text)
         
 
 class GServices:
@@ -328,145 +322,23 @@ class GServices:
             range=range,
         )
 
-def calculate_hours_done_this_month(name):
-    try:
-        data = service.sheets.get_data(columns=['Date', 'Hours'], worksheet_id=st.session_state.config['HourTracker'], tab_name=name)
-    except Exception as e:
-        print(e)
-        return 0
-    if data is None:
-        return 0
-    this_month = datetime.now().date().month
-    hours = sum([int(d[1]) for d in data.values if int(d[0][5:7]) == this_month])
-    return hours
+    def update_entries(self, name, worksheet_id):
+        st.session_state.current_user['Entries'] = service.sheets.get_data(columns=None, tab_name=name, worksheet_id=worksheet_id)
 
-def calculate_hours_required(data):
-    if data is None:
-        return 0
-    def to_value(score:str):
-        total: float = 0.0
-        if '+' in score:
-            total =+ 0.5
-            score = score.replace('+', '')
-        total += float(score)
-        return total
 
-    def evaluate(score:float):
-        value: int = 0
-        match score:
-            case '5.5': 
-                value = 2,
-            case '5.0': 
-                value = 4,
-            case '4.5': 
-                value = 6,
-            case '4.0': 
-                value = 8,
-            case _:
-                if float(score) >= 6:
-                    value = 0
-                elif float(score) < 4:
-                    value = 12
-        return value
+class Entry:
+    ''''''
+    def __init__(self, date='', hours='', activity='', description='', vocab=''):
+        self.data = {
+            'date': date,
+            'hours': hours,
+            'activity': activity,
+            'description': description,
+            'vocab': vocab,
+        }
 
-    def highest(scores:list, k=2):
-        if k > len(scores):
-            raise ValueError
-        values = sorted(scores, reverse=True)
-        return values[:k]
-    
-    BAD = ['1+', '1', '0+', '0']
-    GOOD = ['3', '3+', '4']
-
-    if isinstance(data, pd.DataFrame):
-        if data.empty:
-            return 0
-
-    if isinstance(data, dict):
-        if not data:
-            return 0
-
-    if data['CLang'] == 'AD':
-        if data['MSA - Listening'] in GOOD and data['MSA - Reading'] in GOOD:
-            return 0
-        if data['MSA - Listening'] in BAD or data['MSA - Reading'] in BAD:
-            return 12
-        else:
-            value = sum([to_value(data['MSA - Listening']), to_value(data['MSA - Reading'])])
-            return evaluate(str(value))[0]
-
-    if data['CLang'] in ['AP', 'DG']:
-        if data['CL - Listening'] in GOOD and data['MSA - Reading'] in GOOD:
-            return 0
-        if data['Dialects']:
-            vals = [v.strip().split(' ')[1] for v in data['Dialects'].split(',')]
-            vals.append(data['CL - Listening'])
-            high = to_value((highest(vals, 1)[0]))
-            value = sum([high, to_value(data['MSA - Reading'])])
-            return evaluate(str(value))[0]
-        else:
-            if data['CL - Listening'] in BAD or data['MSA - Reading'] in BAD:
-                return 12
-            value = sum([to_value(data['CL - Listening']), to_value(data['MSA - Reading'])])
-            return evaluate(str(value))[0]
-    else:
-        return 999
-
-def load_subs():
-    st.session_state.current_user['Subs'] = {}
-    worksheet = st.session_state.config['HourTracker']
-    name = st.session_state.current_user['Name']
-    subs = st.session_state.score_tracker.query(f'Supervisor == "{name}"')['Name'].tolist()
-    for sub in subs:
-        st.session_state.current_user['Subs'].update({sub: {'Scores': None, 'Entries': None}})
-        scores = st.session_state.score_tracker.query(f'Name == "{sub}"').to_dict('records')[0]
-        st.session_state.current_user['Subs'][sub]['Scores'] = scores
-        st.session_state.current_user['Subs'][sub]['Entries'] = service.sheets.get_data(columns=None, tab_name=sub, worksheet_id=worksheet)
-
-def get_user_info_index(name):
-    df = st.session_state.members
-    index = df.loc[df['Name'] ==  name].index[0]
-    return index + 1
-
-def welcome():
-    return '🦢 Silly Goose' if contains(st.session_state.current_user['Flags'], 'sg') else st.session_state.current_user['Name']
-
-def load():
-    name = st.session_state.current_user['Name']
-    group = st.session_state.current_user['Group']
-
-    try:
-        data = service.sheets.get_data(columns=None, tab_name=INFO, worksheet_id=MASTER_ID)
-        st.session_state.config = data.query(f'Group == "{group}"').to_dict('records')[0]
-    except:
-        st.session_state.config = None
-
-    try:
-        score_tracker = st.session_state.config['ScoreTracker']
-        all_scores = service.sheets.get_data(columns=None, tab_name=MAIN, worksheet_id=score_tracker)
-        st.session_state.score_tracker = all_scores
-    except:
-        st.session_state.score_tracker = None
-
-    try:
-        user_scores = st.session_state.score_tracker.query(f'Name == "{name}"').to_dict('records')[0]
-        user_scores.pop('Name')
-        st.session_state.current_user['Scores'] = user_scores
-    except:
-        st.session_state.current_user['Scores'] = None
-
-    try:
-        worksheet = st.session_state.config['HourTracker']
-        st.session_state.current_user['Entries'] = service.sheets.get_data(columns=None, tab_name=name, worksheet_id=worksheet)
-    except:
-        st.session_state.current_user['Entries'] = None
-
-    try:
-        st.session_state.current_user['Files'] = service.drive.get_files(name)
-    except:
-        st.session_state.current_user['Files'] = None
-    
-    load_subs()
+    def as_list(self):
+        return list(self.data.values())
 
 
 class Pages:
@@ -474,6 +346,9 @@ class Pages:
         pass
 
     def entry_page(self):
+        def check_submission():
+            pass
+
         with st.form('Entry'):
             name = ''
             st.subheader('Language Hour Entry')
@@ -521,12 +396,13 @@ class Pages:
                     st.success('entry submitted!')
                     st.balloons()
                     st.session_state.entries = service.sheets.get_data(columns=None, worksheet_id=st.session_state.config['HourTracker'], tab_name=user['Name'])
-                    service.log(f'submit {hours} hrs')
+                    service.log(f'submit {hours} hrs', worksheet_id=st.session_state.config['HourTracker'])
                 except Exception as e:
                     st.error('could not submit entry :(')
                     raise e
 
         with st.expander('Show my Language Hour history'):
+            service.update_entries(user['Name'], worksheet_id=st.session_state.config['HourTracker'])
             st.table(user['Entries'])
 
     def sidebar(self):
@@ -767,6 +643,11 @@ class Authenticator:
     def __init__(self):
         pass
 
+    def hash_password(self, password):
+        salt = bcrypt.gensalt()
+        hashed_pw = bcrypt.hashpw(bytes(password, 'utf-8'), salt)
+        return hashed_pw
+
     def authenticate(self, username, password):
         try:
             data = service.sheets.get_data(columns=None, tab_name=MEMBERS, worksheet_id=MASTER_ID, range='A:H')
@@ -776,9 +657,8 @@ class Authenticator:
             st.error('could not retrieve user data')
             print(e)
             return
-        
-        salt = bcrypt.gensalt()
-        hashed_pw = bcrypt.hashpw(bytes(password, 'utf-8'), salt)
+
+        hashed_pw = self.hash_password(password)
         
         if bcrypt.checkpw(bytes(user_data['Password'], 'utf-8'), hashed_pw):
             user_data.pop('Password')
@@ -802,6 +682,152 @@ class Authenticator:
         for i, var in enumerate(self.session_variables):
             self.session_variables[i] = None
             st.session_state[var] = None
+
+
+def debug(text):
+    if not st.session_state.debug:
+        return
+    st.write(text)
+ 
+def calculate_hours_done_this_month(name):
+    try:
+        data = service.sheets.get_data(columns=['Date', 'Hours'], worksheet_id=st.session_state.config['HourTracker'], tab_name=name)
+    except Exception as e:
+        print(e)
+        return 0
+    if data is None:
+        return 0
+    this_month = datetime.now().date().month
+    hours = sum([int(d[1]) for d in data.values if int(d[0][5:7]) == this_month])
+    return hours
+
+def calculate_hours_required(data):
+    if data is None:
+        return 0
+    def to_value(score:str):
+        total: float = 0.0
+        if '+' in score:
+            total =+ 0.5
+            score = score.replace('+', '')
+        total += float(score)
+        return total
+
+    def evaluate(score:float):
+        value: int = 0
+        match score:
+            case '5.5': 
+                value = 2,
+            case '5.0': 
+                value = 4,
+            case '4.5': 
+                value = 6,
+            case '4.0': 
+                value = 8,
+            case _:
+                if float(score) >= 6:
+                    value = 0
+                elif float(score) < 4:
+                    value = 12
+        return value
+
+    def highest(scores:list, k=2):
+        if k > len(scores):
+            raise ValueError
+        values = sorted(scores, reverse=True)
+        return values[:k]
+    
+    BAD = ['1+', '1', '0+', '0']
+    GOOD = ['3', '3+', '4']
+
+    if isinstance(data, pd.DataFrame):
+        if data.empty:
+            return 0
+
+    if isinstance(data, dict):
+        if not data:
+            return 0
+
+    if data['CLang'] == 'AD':
+        if data['MSA - Listening'] in GOOD and data['MSA - Reading'] in GOOD:
+            return 0
+        if data['MSA - Listening'] in BAD or data['MSA - Reading'] in BAD:
+            return 12
+        else:
+            value = sum([to_value(data['MSA - Listening']), to_value(data['MSA - Reading'])])
+            return evaluate(str(value))[0]
+
+    if data['CLang'] in ['AP', 'DG']:
+        if data['CL - Listening'] in GOOD and data['MSA - Reading'] in GOOD:
+            return 0
+        if data['Dialects']:
+            vals = [v.strip().split(' ')[1] for v in data['Dialects'].split(',')]
+            vals.append(data['CL - Listening'])
+            high = to_value((highest(vals, 1)[0]))
+            value = sum([high, to_value(data['MSA - Reading'])])
+            return evaluate(str(value))[0]
+        else:
+            if data['CL - Listening'] in BAD or data['MSA - Reading'] in BAD:
+                return 12
+            value = sum([to_value(data['CL - Listening']), to_value(data['MSA - Reading'])])
+            return evaluate(str(value))[0]
+    else:
+        return 999
+
+def load_subs():
+    st.session_state.current_user['Subs'] = {}
+    worksheet = st.session_state.config['HourTracker']
+    name = st.session_state.current_user['Name']
+    subs = st.session_state.score_tracker.query(f'Supervisor == "{name}"')['Name'].tolist()
+    for sub in subs:
+        st.session_state.current_user['Subs'].update({sub: {'Scores': None, 'Entries': None}})
+        scores = st.session_state.score_tracker.query(f'Name == "{sub}"').to_dict('records')[0]
+        st.session_state.current_user['Subs'][sub]['Scores'] = scores
+        st.session_state.current_user['Subs'][sub]['Entries'] = service.sheets.get_data(columns=None, tab_name=sub, worksheet_id=worksheet)
+
+def get_user_info_index(name):
+    df = st.session_state.members
+    index = df.loc[df['Name'] ==  name].index[0]
+    return index + 1
+
+def welcome():
+    return '🦢 Silly Goose' if contains(st.session_state.current_user['Flags'], 'sg') else st.session_state.current_user['Name']
+
+def load():
+    name = st.session_state.current_user['Name']
+    group = st.session_state.current_user['Group']
+
+    try:
+        data = service.sheets.get_data(columns=None, tab_name=INFO, worksheet_id=MASTER_ID)
+        st.session_state.config = data.query(f'Group == "{group}"').to_dict('records')[0]
+    except:
+        st.session_state.config = None
+
+    try:
+        score_tracker = st.session_state.config['ScoreTracker']
+        all_scores = service.sheets.get_data(columns=None, tab_name=MAIN, worksheet_id=score_tracker)
+        st.session_state.score_tracker = all_scores
+    except:
+        st.session_state.score_tracker = None
+
+    try:
+        user_scores = st.session_state.score_tracker.query(f'Name == "{name}"').to_dict('records')[0]
+        user_scores.pop('Name')
+        st.session_state.current_user['Scores'] = user_scores
+    except:
+        st.session_state.current_user['Scores'] = None
+
+    try:
+        worksheet = st.session_state.config['HourTracker']
+        st.session_state.current_user['Entries'] = service.sheets.get_data(columns=None, tab_name=name, worksheet_id=worksheet)
+    except:
+        st.session_state.current_user['Entries'] = None
+
+    try:
+        st.session_state.current_user['Files'] = service.drive.get_files(name)
+    except:
+        st.session_state.current_user['Files'] = None
+    
+    load_subs()
 
 
 if __name__ == '__main__':
