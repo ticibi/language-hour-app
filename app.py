@@ -17,8 +17,6 @@ import bcrypt
 URL = 'https://docs.google.com/spreadsheets/d/'
 DRIVE = 'https://drive.google.com/drive/u/6/folders/'
 SERVICE_ACCOUNT = st.secrets['SERVICE_ACCOUNT']
-LHT_ID = st.secrets['LHT_ID']
-LST_ID = st.secrets['LST_ID']
 FOLDER_ID = st.secrets['FOLDER_ID']
 PASSWORD = st.secrets['PASSWORD']
 MASTER_ID = st.secrets['MASTER_ID']
