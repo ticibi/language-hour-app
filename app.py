@@ -32,7 +32,7 @@ MEMBERS = 'Members'
 
 
 st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
-session_variables = ['current_user', 'authenticated', 'current_group', 'req_count', 'members', 'config', 'req_count', 'debug', 'score_tracker', 'show_total_month_hours', 'total_month_all',]
+session_variables = ['selected_month', 'current_user', 'authenticated', 'current_group', 'req_count', 'members', 'config', 'req_count', 'debug', 'score_tracker', 'show_total_month_hours', 'total_month_all',]
 initialize_session_state_variables(session_variables)
 st.session_state.req_count = 0
         
@@ -310,6 +310,7 @@ class GServices:
             return e
 
     def log(self, event, tab_name='Log', worksheet_id='', range='A:D'):
+        return
         self.sheets.write_data(
             [[str(date.today()),
             str(datetime.now().strftime("%H:%M:%S")),
@@ -321,8 +322,20 @@ class GServices:
         )
 
     def update_entries(self, name, worksheet_id):
-        st.session_state.current_user['Entries'] = service.sheets.get_data(columns=None, tab_name=name, worksheet_id=worksheet_id)
+        st.session_state.current_user['Entries'] = self.sheets.get_data(columns=None, tab_name=name, worksheet_id=worksheet_id)
 
+    def create_folders_bulk(self):
+        count = 0
+        names = st.session_state.members['Name']
+        for name in names:
+            try:
+                _ = self.drive.get_folder_id(name)
+            except Exception as e:
+                print(e)
+                self.drive.create_folder(name, st.session_state.config['GoogleDrive'])
+                count += 1
+        return count
+        
 
 class Pages:
     def __init__(self):
@@ -530,33 +543,30 @@ class Pages:
 
     def admin_page(self):
         if st.session_state.show_total_month_hours:
-            with st.expander(f'Total Month Hours - {calendar.month_name[date.today().month]} {date.today().year}', expanded=True):
+            with st.expander(f'Monthly Hours Rundown - {st.session_state.selected_month}', expanded=True):
                 with st.spinner('calculating who done messed up...'):
-                    if st.session_state.total_month_all:
-                        df = pd.DataFrame(st.session_state.total_month_all, columns=['Comments', 'Met', 'Name', 'Hours Done', 'Hours Required'])
-                        st.table(df)
-                    else:
-                        data = []
-                        for name in st.session_state.members['Name']:
-                            try:
-                                user_data = st.session_state.score_tracker.loc[st.session_state.score_tracker['Name'] == name].to_dict('records')[0]
-                                hrs_req = calculate_hours_required(user_data)
-                            except Exception as e:
-                                print(e)
-                                hrs_req = 0
-                            try:
-                                hrs_done = calculate_hours_done_this_month(name)
-                            except Exception as e:
-                                print(e)
-                                hrs_done = 0
-                            check = {
-                                True: '✅',
-                                False: '❌',
-                            }
-                            data.append(['', check[float(hrs_done) >= float(hrs_req)], name, hrs_done, hrs_req])
-                        df = pd.DataFrame(data, columns=['Comments', 'Met', 'Name', 'Hours Done', 'Hours Required'])
-                        st.table(df)
-                        st.session_state.total_month_all = data
+                    data = []
+                    for name in st.session_state.members['Name']:
+                        try:
+                            user_data = st.session_state.score_tracker.loc[st.session_state.score_tracker['Name'] == name].to_dict('records')[0]
+                            hrs_req = calculate_hours_required(user_data)
+                        except Exception as e:
+                            print(e)
+                            hrs_req = 0
+                        try:
+                            month = list(calendar.month_name).index(st.session_state.selected_month)
+                            hrs_done = calculate_hours_done_this_month(name, month)
+                        except Exception as e:
+                            print(e)
+                            hrs_done = 0
+                        check = {
+                            True: '✅',
+                            False: '❌',
+                        }
+                        data.append(['', check[float(hrs_done) >= float(hrs_req)], name, hrs_done, hrs_req])
+                    df = pd.DataFrame(data, columns=['Comments', 'Met', 'Name', 'Hours Done', 'Hours Required'])
+                    st.table(df)
+                    st.session_state.total_month_all = data
 
     def admin_sidebar(self):
         st.sidebar.subheader('Admin')
@@ -601,8 +611,8 @@ class Pages:
                             print(e)
                             st.error('failed to add member')
 
-        def member_things():
-            with st.expander('Members'):
+        def member_actions():
+            with st.expander('Member Actions'):
                 options = list(st.session_state.members['Name'])
                 options.append('')
                 member = st.selectbox('Select a Member', options=options, index=len(options)-1)
@@ -618,24 +628,41 @@ class Pages:
                         if confirm:
                             service.log(f'removed member {member}', worksheet_id=st.session_state.config['HourTracker'])
 
+        def create_folders():
+            return service.create_folders_bulk()
+
         with st.sidebar:
             add_member()
-            member_things()
-            with st.expander('More'):
-                if st.button('Show Total Month Hours'):
+            member_actions()
+            with st.expander('Monthly Rundown'):
+                month = st.selectbox("Select Month", options=calendar.month_name)# [i + 1 for i in range(12)])
+                st.session_state.selected_month = month
+                if st.button(f'Show {month} Hours Rundown'):
                     st.session_state.show_total_month_hours = not st.session_state.show_total_month_hours
-                if st.button('Show upcoming DLPTs'):
-                    pass
-                if st.button('Show upcoming SLTEs'):
-                    pass
-            
-            st.write(f"[Member Tracker]({URL+MASTER_ID})")
-            st.write(f"[Score Tracker]({URL+st.session_state.config['ScoreTracker']})")
-            st.write(f"[Hour Tracker]({URL+st.session_state.config['HourTracker']})")
-            st.write(f"[Google Drive]({DRIVE+st.session_state.config['GoogleDrive']})")
+                #if st.button('Show upcoming DLPTs'):
+                #    pass
+                #if st.button('Show upcoming SLTEs'):
+                #    pass
+
+            with st.expander('Google Services'):
+                st.write(f"[Tracker IDs]({URL+MASTER_ID+'/edit#gid=1872805225'})")
+                if st.button('Create Folders', help="create folders for members if not already exist"):
+                    try:
+                        count = create_folders()
+                    except HTTPError as e:
+                        print(e)
+                        st.warning('Try again later')
+                    st.sidebar.success(f"created {count} new folders")
+
+            with st.expander('Tracker Links'):
+                st.write(f"[Member Tracker]({URL+MASTER_ID})")
+                st.write(f"[Score Tracker]({URL+st.session_state.config['ScoreTracker']})")
+                st.write(f"[Hour Tracker]({URL+st.session_state.config['HourTracker']})")
+                st.write(f"[Google Drive]({DRIVE+st.session_state.config['GoogleDrive']})")
 
     def dev_page(self):
-        st.write(st.session_state)
+        if st.session_state.debug:
+            st.write(st.session_state)
 
     def dev_sidebar(self):
         def toggle_debug():
@@ -729,7 +756,7 @@ def debug(text):
         return
     st.write(text)
  
-def calculate_hours_done_this_month(name):
+def calculate_hours_done_this_month(name, month=datetime.now().date().month):
     try:
         data = service.sheets.get_data(columns=['Date', 'Hours'], worksheet_id=st.session_state.config['HourTracker'], tab_name=name)
     except Exception as e:
@@ -737,8 +764,7 @@ def calculate_hours_done_this_month(name):
         return 0
     if data is None:
         return 0
-    this_month = datetime.now().date().month
-    hours = sum([int(d[1]) for d in data.values if int(d[0][5:7]) == this_month])
+    hours = sum([int(d[1]) for d in data.values if int(d[0][5:7]) == month])
     return hours
 
 def calculate_hours_required(data):
@@ -865,7 +891,10 @@ def load():
     except:
         st.session_state.current_user['Files'] = None
     
-    load_subs()
+    try:
+        load_subs()
+    except:
+        st.session_state.current_user['Subs'] = {}
 
 
 if __name__ == '__main__':
