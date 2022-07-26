@@ -53,6 +53,7 @@ class GServices:
                 serviceName='gmail',
                 version='v1',
                 credentials=credentials,
+                cache_discovery=False,
             )
 
     class Sheets:
@@ -61,6 +62,7 @@ class GServices:
                 serviceName='sheets',
                 version='v4',
                 credentials=credentials,
+                cache_discovery=False,
             )
 
         def add_tab(self, tab_name, worksheet_id):
@@ -137,6 +139,7 @@ class GServices:
                 serviceName='drive',
                 version='v3',
                 credentials=credentials,
+                cache_discovery=False
             )
 
         def create_folder(self, folder_name, folder_id):
@@ -416,7 +419,6 @@ class Pages:
                 color = 'green' if hrs_done >= hrs_req else 'red'
                 st.markdown(f'{sub} <p style="color:{color}">{hrs_done}/{hrs_req} hrs</p>', unsafe_allow_html=True)
                 scores = user['Subs'][sub]['Scores']
-                del scores['Supervisor']
                 del scores['Name']
                 st.table(pd.DataFrame(scores, index=[0]))
                 st.table(user['Subs'][sub]['Entries'])
@@ -530,7 +532,6 @@ class Pages:
                     placeholder='Enter email',
                     type='password',
                 )
-                debug((st.session_state.current_user['Reminder'], st.session_state.current_user['Report']))
 
         with st.sidebar:
             st.subheader(f'Welcome {self.welcome_message()}!')
@@ -661,8 +662,7 @@ class Pages:
                 st.write(f"[Google Drive]({DRIVE+st.session_state.config['GoogleDrive']})")
 
     def dev_page(self):
-        if st.session_state.debug:
-            st.write(st.session_state)
+        st.write(st.session_state)
 
     def dev_sidebar(self):
         def toggle_debug():
@@ -673,7 +673,6 @@ class Pages:
             with st.expander('+', expanded=True):
                 st.write(f'Request Count: {st.session_state.req_count}')
                 st.checkbox('Show Debug', value=st.session_state.debug, on_change=toggle_debug())
-                debug(st.session_state.debug)
 
 
 class Authenticator:
@@ -687,7 +686,7 @@ class Authenticator:
 
     def authenticate(self, username, password):
         try:
-            data = service.sheets.get_data(columns=None, tab_name=MEMBERS, worksheet_id=MASTER_ID, range='A:H')
+            data = service.sheets.get_data(columns=None, tab_name=MEMBERS, worksheet_id=MASTER_ID, range='A:I')
             user_data = data.query(f'Username == "{username}"').to_dict('records')[0]
             st.session_state.members = data.query(f'Group == "{user_data["Group"]}"').drop(columns=['Password'], axis=1)
         except Exception as e:
@@ -750,11 +749,6 @@ def check_due_date(scores: dict) -> tuple:
             slte_due = slte_last + (year + (month * 6)) if slte_last is not None else slte_last
     output = (str(datetime.fromtimestamp(dltp_due))[:10], str(datetime.fromtimestamp(slte_due))[:10])
     return output
-
-def debug(text):
-    if not st.session_state.debug:
-        return
-    st.write(text)
  
 def calculate_hours_done_this_month(name, month=datetime.now().date().month):
     try:
@@ -843,7 +837,7 @@ def load_subs():
     st.session_state.current_user['Subs'] = {}
     worksheet = st.session_state.config['HourTracker']
     name = st.session_state.current_user['Name']
-    subs = st.session_state.score_tracker.query(f'Supervisor == "{name}"')['Name'].tolist()
+    subs = st.session_state.members.query(f'Supervisor == "{name}"')['Name'].tolist()
     for sub in subs:
         st.session_state.current_user['Subs'].update({sub: {'Scores': None, 'Entries': None}})
         scores = st.session_state.score_tracker.query(f'Name == "{sub}"').to_dict('records')[0]
@@ -868,7 +862,7 @@ def load():
 
     try:
         score_tracker = st.session_state.config['ScoreTracker']
-        all_scores = service.sheets.get_data(columns=None, tab_name=MAIN, worksheet_id=score_tracker)
+        all_scores = service.sheets.get_data(columns=None, tab_name=MAIN, worksheet_id=score_tracker, range='A:J')
         st.session_state.score_tracker = all_scores
     except:
         st.session_state.score_tracker = None
@@ -893,7 +887,8 @@ def load():
     
     try:
         load_subs()
-    except:
+    except Exception as e:
+        print(e)
         st.session_state.current_user['Subs'] = {}
 
 
