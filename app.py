@@ -368,7 +368,6 @@ class GServices:
         return count
 
 
-
 class Pages:
     def __init__(self):
         self.user = st.session_state.current_user
@@ -456,7 +455,7 @@ class Pages:
 
     def sidebar(self):
         def update_score():
-            pass
+            service.log(f'updated scores', worksheet_id=st.session_state.config['HourTracker'])
 
         def scores():
             with st.expander('[beta] My Scores'):
@@ -480,7 +479,7 @@ class Pages:
                             del username
                         if password != '':
                             service.update_member(field='password', name='Members', index=index, values=[[password]])
-                            service.log(f'changed their password')
+                            service.log(f'updated password')
                             del password
                         st.info('info updated')
                     except Exception as e:
