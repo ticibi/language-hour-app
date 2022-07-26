@@ -227,10 +227,10 @@ class GServices:
                 range=f'{data["Name"]}!{cell_range}',
                 body=body,
             ).execute()
-            st.success('created sheet')
+            st.success('created tab')
         except Exception as e:
             print(e)
-            st.warning('failed to create sheet')
+            st.warning('failed to create tab')
         try:
             data =[[data['Name'], data['Username'], PASSWORD, data['Flags']]]
             self.sheets.write_data(data, worksheet_id=hour_id, tab_name='Members', range='A:D')
@@ -313,16 +313,18 @@ class GServices:
             return e
 
     def log(self, event, tab_name='Log', worksheet_id='', range='A:D'):
-        return
-        self.sheets.write_data(
-            [[str(date.today()),
-            str(datetime.now().strftime("%H:%M:%S")),
-            st.session_state.current_user['Username'],
-            event]],
-            tab_name=tab_name,
-            worksheet_id=worksheet_id,
-            range=range,
-        )
+        try:
+            self.sheets.write_data(
+                [[str(date.today()),
+                str(datetime.now().strftime("%H:%M:%S")),
+                st.session_state.current_user['Username'],
+                event]],
+                tab_name=tab_name,
+                worksheet_id=worksheet_id,
+                range=range,
+            )
+        except Exception as e:
+            print('[log error]', e)
 
     def update_entries(self, name, worksheet_id):
         st.session_state.current_user['Entries'] = self.sheets.get_data(columns=None, tab_name=name, worksheet_id=worksheet_id)
@@ -338,37 +340,81 @@ class GServices:
                 self.drive.create_folder(name, st.session_state.config['GoogleDrive'])
                 count += 1
         return count
-        
+
+    def create_tabs_bulk(self):
+        count = 0
+        names = st.session_state.members['Name']
+        for name in names:
+            try:
+                self.sheets.get_data(columns=None, tab_name=name, worksheet_id=st.session_state.config['HourTracker'], range='A:D')
+            except Exception as e:
+                print(e)
+                self.sheets.add_tab(name)
+                cell_range = 'A1'
+                values = (
+                    ('Date', 'Hours', 'Modality', 'Description', 'Vocab'),
+                )
+                body = {
+                    'majorDimension': 'ROWS',
+                    'values': values,
+                }
+                self.sheets.spreadsheets().values().update(
+                    spreadsheetId=st.session_state.config['HourTracker'],
+                    valueInputOption='USER_ENTERED',
+                    range=f'{name}!{cell_range}',
+                    body=body,
+                ).execute()
+                count += 1
+        return count
+
+
 
 class Pages:
     def __init__(self):
-        pass
+        self.user = st.session_state.current_user
 
     def welcome_message(self):
         return '🦢 Silly Goose' if contains(st.session_state.current_user['Flags'], 'sg') else st.session_state.current_user['Name']
 
-    def entry_page(self):
-        def check_submission():
-            pass
+    def history_expander(self):
+        with st.expander('Show my Language Hour history'):
+            try:
+                service.update_entries(self.user['Name'], worksheet_id=st.session_state.config['HourTracker'])
+                st.table(self.user['Entries'])
+            except Exception as e:
+                print('[error]', e)
 
+    def mytroops_expander(self):
+        st.subheader('My Troops')
+        for sub in self.user['Subs'].keys():
+            with st.expander(sub):
+                hrs_done = calculate_hours_done_this_month(sub)
+                hrs_req = calculate_hours_required(self.user['Subs'][sub]['Scores'])
+                color = 'green' if hrs_done >= hrs_req else 'red'
+                st.markdown(f'<p style="color:{color}">{hrs_done}/{hrs_req} hrs</p>', unsafe_allow_html=True)
+                scores = self.user['Subs'][sub]['Scores']
+                del scores['Name']
+                st.dataframe(pd.DataFrame(scores, index=[0]))
+                st.dataframe(self.user['Subs'][sub]['Entries'])
+
+    def entry_form(self):
         with st.form('Entry'):
             name = ''
             st.subheader('Language Hour Entry')
-            user = st.session_state.current_user
             cols = st.columns((2, 1))
             if contains(st.session_state.current_user['Flags'], 'admin'):
                 options = list(st.session_state.members['Name'])
-                index = options.index(user['Name'])
+                index = options.index(self.user['Name'])
                 name = cols[0].selectbox("Name", options=options, index=index)
             else:
-                options = list(user['Subs'].keys())
-                options.append(user['Name'])
+                options = list(self.user['Subs'].keys())
+                options.append(self.user['Name'])
                 name = cols[0].selectbox("Name", options=options, index=len(options)-1)
             date = cols[1].date_input("Date")
             cols = st.columns((2, 1))
             mods = cols[0].multiselect("Activity", options=['Listening', 'Reading', 'Speaking', 'Transcription', 'Vocab', 'SLTE', 'DLPT', 'ILTP upload', '623A upload'])
-            hours_done = calculate_hours_done_this_month(user['Name'])
-            hours_req = calculate_hours_required(user['Scores'])
+            hours_done = calculate_hours_done_this_month(self.user['Name'])
+            hours_req = calculate_hours_required(self.user['Scores'])
             hours = cols[1].text_input(f"Hours - {hours_done}/{hours_req} hrs completed")
             cols = st.columns((2, 1))
             desc = cols[0].text_area("Description", height=150, placeholder='be detailed!')
@@ -397,47 +443,36 @@ class Pages:
                         )
                     st.success('entry submitted!')
                     st.balloons()
-                    st.session_state.entries = service.sheets.get_data(columns=None, worksheet_id=st.session_state.config['HourTracker'], tab_name=user['Name'])
+                    st.session_state.entries = service.sheets.get_data(columns=None, worksheet_id=st.session_state.config['HourTracker'], tab_name=self.user['Name'])
                     service.log(f'submit {hours} hrs', worksheet_id=st.session_state.config['HourTracker'])
                 except Exception as e:
                     st.error('could not submit entry :(')
                     raise e
 
-        with st.expander('Show my Language Hour history'):
-            try:
-                service.update_entries(user['Name'], worksheet_id=st.session_state.config['HourTracker'])
-                st.table(user['Entries'])
-            except:
-                pass
-
-        with st.expander('My Troops'):
-            if user['Subs'] is None:
-                return
-            for sub in user['Subs'].keys():
-                hrs_done = calculate_hours_done_this_month(sub)
-                hrs_req = calculate_hours_required(user['Subs'][sub]['Scores'])
-                color = 'green' if hrs_done >= hrs_req else 'red'
-                st.markdown(f'{sub} <p style="color:{color}">{hrs_done}/{hrs_req} hrs</p>', unsafe_allow_html=True)
-                scores = user['Subs'][sub]['Scores']
-                del scores['Name']
-                st.table(pd.DataFrame(scores, index=[0]))
-                st.table(user['Subs'][sub]['Entries'])
+    def main_page(self):
+        self.entry_form()
+        self.history_expander()
+        self.mytroops_expander()
 
     def sidebar(self):
-        user = st.session_state.current_user
+        def update_score():
+            pass
 
-        def tooltip(data):
-            output = f'CL: {data["CL - Listening"]} MSA: {data["MSA - Listening"]}/{data["MSA - Reading"]} (click to view entries)'
-            return output
+        def scores():
+            with st.expander('[beta] My Scores'):
+                cols = st.columns((1, 1, 1))
+                listening = cols[0].text_input('CLang: Listening', value=self.user['Scores']['CL - Listening'], on_change=update_score())
+                listening2 = cols[1].text_input('MSA: Listening', value=self.user['Scores']['MSA - Listening'], on_change=update_score())
+                reading = cols[2].text_input('MSA: Reading', value=self.user['Scores']['MSA - Reading'], on_change=update_score())
 
         def info():
-            with st.expander('My Info'):
-                st.text_input('Name', value=user['Name'], disabled=True)
-                username = st.text_input('Username', value=user['Username'])
+            with st.expander('[beta] My Info'):
+                st.text_input('Name', value=self.user['Name'], disabled=True)
+                username = st.text_input('Username', value=self.user['Username'])
                 password = st.text_input('Password', placeholder='enter a new password')
                 button = st.button('Save')
                 if button:
-                    index = get_user_info_index(user['Name'])
+                    index = get_user_info_index(self.user['Name'])
                     try:
                         if username != '':
                             service.update_member(field='username', name='Members', index=index, values=[[username]])
@@ -455,7 +490,7 @@ class Pages:
         def upload():
             with st.expander('Upload/Download Files'):
                 try:
-                    st.download_button('📥 Download myLanguageHours', data=to_excel(user['Entries']))
+                    st.download_button('📥 Download myLanguageHours', data=to_excel(self.user['Entries']))
                 except:
                     pass
                 file = st.file_uploader('Upload 623A or ILTP', type=['pdf', 'txt', 'docx'])
@@ -463,7 +498,7 @@ class Pages:
                 if file:
                     with st.spinner('uploading...'):
                         try:
-                            service.drive.upload_file(file, folder_name=user['Name'])
+                            service.drive.upload_file(file, folder_name=self.user['Name'])
                             st.sidebar.success('file uploaded')
                             service.log(f'uploaded {file.type} file named "{file.name}"')
                         except Exception as e:
@@ -472,21 +507,20 @@ class Pages:
                     os.remove(f"temp/{file.name}")
 
         def subs():
-            with st.expander('My Troops'):
-                if user['Subs'] is None:
+            with st.expander('My Troops', expanded=True):
+                if self.user['Subs'] is None:
                     return
-                for sub in user['Subs'].keys():
+                for sub in self.user['Subs'].keys():
                     cols = st.columns((5, 2))
-                    if cols[0].button(sub, help=tooltip(user['Subs'][sub]['Scores'])):
-                        pass
+                    cols[0].markdown(sub)
                     hrs_done = calculate_hours_done_this_month(sub)
-                    hrs_req = calculate_hours_required(user['Subs'][sub]['Scores'])
+                    hrs_req = calculate_hours_required(self.user['Subs'][sub]['Scores'])
                     color = 'green' if hrs_done >= hrs_req else 'red'
                     cols[1].markdown(f'<p style="color:{color}">{hrs_done}/{hrs_req} hrs</p>', unsafe_allow_html=True)
 
         def files():
-            with st.expander('My Files'):
-                files = user['Files']
+            with st.expander('[beta] My Files'):
+                files = self.user['Files']
                 if not files:
                     st.sidebar.warning('no files')
                 else:
@@ -508,9 +542,11 @@ class Pages:
                                 f.write(file_bytes.getbuffer())
                             os.remove(f"temp/{file['name']}")
 
-        def help():
-            with st.expander('Help'):
-                print(list(st.session_state.help_text))
+        def program_info():
+            with st.expander('[beta] Program Info'):
+                st.markdown('''
+                    *program info goes here
+                ''')
 
         def settings():
             def _check_reminder():
@@ -523,7 +559,7 @@ class Pages:
                     return False
                 return True if st.session_state.current_user['Report'] else False
 
-            with st.expander('Preferences'):
+            with st.expander('[beta] Preferences'):
                 st.session_state.current_user['Reminder'] = 'x' if st.checkbox('Receive e-mail reminders', value=_check_reminder()) else ''
                 st.session_state.current_user['Report'] = 'x' if st.checkbox('Receive monthly reports', value=_check_report()) else ''
                 st.text_input(
@@ -535,12 +571,13 @@ class Pages:
 
         with st.sidebar:
             st.subheader(f'Welcome {self.welcome_message()}!')
-            if st.session_state.debug: info()
+            if 'admin' in st.session_state.current_user['Flags']: info()
+            if 'admin' in st.session_state.current_user['Flags']: scores()
             subs()
             upload()
-            if st.session_state.debug: files()
-            if st.session_state.debug: settings() 
-            if st.session_state.debug: help()
+            if 'admin' in st.session_state.current_user['Flags']: files()
+            if 'admin' in st.session_state.current_user['Flags']: settings() 
+            if 'admin' in st.session_state.current_user['Flags']: program_info()
 
     def admin_page(self):
         if st.session_state.show_total_month_hours:
@@ -629,9 +666,6 @@ class Pages:
                         if confirm:
                             service.log(f'removed member {member}', worksheet_id=st.session_state.config['HourTracker'])
 
-        def create_folders():
-            return service.create_folders_bulk()
-
         with st.sidebar:
             add_member()
             member_actions()
@@ -645,30 +679,38 @@ class Pages:
                 #if st.button('Show upcoming SLTEs'):
                 #    pass
 
-            with st.expander('Google Services'):
-                st.write(f"[Tracker IDs]({URL+MASTER_ID+'/edit#gid=1872805225'})")
-                if st.button('Create Folders', help="create folders for members if not already exist"):
+            with st.expander('Admin Actions'):
+                if st.button('Create Folders', help="create folders for all members if it doesn't exist"):
                     try:
-                        count = create_folders()
+                        count = service.create_folders_bulk()
+                        st.sidebar.success(f"created {count} folders")
+                        service.log(f'created {count} folders', worksheet_id=st.session_state.config['HourTracker'])
                     except HTTPError as e:
                         print(e)
-                        st.warning('Try again later')
-                    st.sidebar.success(f"created {count} new folders")
+                if st.button('Create Tabs', help="create tabs for all members if it doesn't exist"):
+                    try:
+                        count = service.create_tabs_bulk()
+                        st.sidebar.success(f"created {count} tabs")
+                        service.log(f'created {count} tabs', worksheet_id=st.session_state.config['HourTracker'])
+                    except HTTPError as e:
+                        print(e)
 
             with st.expander('Tracker Links'):
-                st.write(f"[Member Tracker]({URL+MASTER_ID})")
+                st.write(f"[Master Tracker]({URL+MASTER_ID})")
                 st.write(f"[Score Tracker]({URL+st.session_state.config['ScoreTracker']})")
                 st.write(f"[Hour Tracker]({URL+st.session_state.config['HourTracker']})")
                 st.write(f"[Google Drive]({DRIVE+st.session_state.config['GoogleDrive']})")
 
     def dev_page(self):
-        st.write(st.session_state)
+        st.subheader('Dev Tools')
+        with st.expander('[Developer Debug]'):
+            st.write(st.session_state)
 
     def dev_sidebar(self):
         def toggle_debug():
             st.session_state.debug = not st.session_state.debug
 
-        st.sidebar.subheader('Dev')
+        st.sidebar.subheader('[Developer Debug]')
         with st.sidebar:
             with st.expander('+', expanded=True):
                 st.write(f'Request Count: {st.session_state.req_count}')
@@ -902,7 +944,7 @@ if __name__ == '__main__':
             load()
         try:
             pages.sidebar()
-            pages.entry_page()
+            pages.main_page()
         except Exception as e:
             st.error('could not load page')
             print(e)
@@ -916,7 +958,6 @@ if __name__ == '__main__':
                 print(e)
 
         if contains(st.session_state.current_user['Flags'], 'dev'):
-            st.session_state.debug = True
             try:
                 pages.dev_sidebar()
                 pages.dev_page()
