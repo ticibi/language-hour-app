@@ -11,7 +11,7 @@ st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="c
 session_variables = ['selected_month', 'current_user', 'authenticated', 'current_group', 'req_count', 'members', 'config', 'req_count', 'debug', 'score_tracker', 'show_total_month_hours', 'total_month_all',]
 initialize_session_state_variables(session_variables)
 st.session_state.req_count = 0
-        
+
  
 def load_subs():
     st.session_state.current_user['Subs'] = {}

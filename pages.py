@@ -17,6 +17,8 @@ class Pages():
         return '🦢 Silly Goose' if contains(st.session_state.current_user['Flags'], 'sg') else st.session_state.current_user['Name']
 
     def history_expander(self):
+        if self.user['Entries'].size < 1:
+            return
         with st.expander('Show my Language Hour history'):
             try:
                 self.service.update_entries(self.user['Name'], worksheet_id=st.session_state.config['HourTracker'])
@@ -25,6 +27,8 @@ class Pages():
                 print('[error]', e)
 
     def mytroops_expander(self):
+        if not self.user['Subs']:
+            return
         st.subheader('My Troops')
         for sub in self.user['Subs'].keys():
             with st.expander(sub):
