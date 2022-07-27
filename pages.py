@@ -28,7 +28,7 @@ class Pages():
         st.subheader('My Troops')
         for sub in self.user['Subs'].keys():
             with st.expander(sub):
-                hrs_done = calculate_hours_done_this_month(self.service, sub)
+                hrs_done = calculate_hours_done_this_month(self.service, name=sub)
                 hrs_req = calculate_hours_required(self.user['Subs'][sub]['Scores'])
                 color = 'green' if hrs_done >= hrs_req else 'red'
                 st.markdown(f'<p style="color:{color}">{hrs_done}/{hrs_req} hrs</p>', unsafe_allow_html=True)
@@ -53,7 +53,7 @@ class Pages():
             date = cols[1].date_input("Date")
             cols = st.columns((2, 1))
             mods = cols[0].multiselect("Activity", options=['Listening', 'Reading', 'Speaking', 'Transcription', 'Vocab', 'SLTE', 'DLPT', 'ILTP upload', '623A upload'])
-            hours_done = calculate_hours_done_this_month(self.service, self.user['Name'])
+            hours_done = calculate_hours_done_this_month(self.service, name=self.user['Name'])
             hours_req = calculate_hours_required(self.user['Scores'])
             hours = cols[1].text_input(f"Hours - {hours_done}/{hours_req} hrs completed")
             cols = st.columns((2, 1))
@@ -153,7 +153,7 @@ class Pages():
                 for sub in self.user['Subs'].keys():
                     cols = st.columns((5, 2))
                     cols[0].markdown(sub)
-                    hrs_done = calculate_hours_done_this_month(self.service, sub)
+                    hrs_done = calculate_hours_done_this_month(self.service, name=sub)
                     hrs_req = calculate_hours_required(self.user['Subs'][sub]['Scores'])
                     color = 'green' if hrs_done >= hrs_req else 'red'
                     cols[1].markdown(f'<p style="color:{color}">{hrs_done}/{hrs_req} hrs</p>', unsafe_allow_html=True)
@@ -222,7 +222,7 @@ class Pages():
                             hrs_req = 0
                         try:
                             month = list(calendar.month_name).index(st.session_state.selected_month)
-                            hrs_done = calculate_hours_done_this_month(self.service, name, month)
+                            hrs_done = calculate_hours_done_this_month(self.service, name=name, month=month)
                         except Exception as e:
                             print(e)
                             hrs_done = 0
