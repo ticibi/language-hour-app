@@ -11,10 +11,11 @@ def initialize_session_state_variables(vars):
             st.session_state[var] = None
 
 def to_excel(df):
-    #output = BytesIO()
-    #writer = pd.ExcelWriter(output, engine="xlsxwriter")
-    file = df.to_excel('LanguageHourHistory', sheet_name="Sheet1")
-    return file
+    output = BytesIO()
+    writer = pd.ExcelWriter(output, engine="xlsxwriter")
+    df.to_excel(writer, index=False, sheet_name="MyHistory")
+    writer.save()
+    return output.getvalue()
 
 def timeit(func):
     def wrapper(*args, **kwargs):
@@ -113,3 +114,33 @@ def get_user_info_index(name):
     index = df.loc[df['Name'] ==  name].index[0]
     return index + 1
 
+def check_due_date(scores: dict) -> tuple:
+    '''return dlpt due and slte due'''
+    str_format = '%m/%d/%Y'
+    year = 31536000.0
+    month = 2628000.0
+    try:
+        dlpt_last = datetime.strptime(scores['DLPT Date'], str_format).timestamp()
+    except:
+        dlpt_last = None
+    try:
+        slte_last = datetime.strptime(scores['SLTE Date'], str_format).timestamp()
+    except:
+        slte_last = None
+    if scores['CLang'] in ['AD']:
+        if scores['MSA - Listening'] == '3' and ['MSA - Reading'] == '3':
+            dltp_due = dlpt_last + (year * 2) if slte_last is not None else dlpt_last
+            slte_due = slte_last + (year * 2) if slte_last is not None else slte_last
+        else:
+            dltp_due = dlpt_last + year if slte_last is not None else dlpt_last
+            slte_due = slte_last + (year + (month * 6)) if slte_last is not None else slte_last
+    elif scores['CLang'] in ['AP', 'DG']:
+        if scores['CL - Listening'] == '3' and ['MSA - Reading'] == '3':
+            dltp_due = dlpt_last + (year * 2) if slte_last is not None else dlpt_last
+            slte_due = slte_last + (year * 2) if slte_last is not None else slte_last
+        else:
+            dltp_due = dlpt_last + year if slte_last is not None else dlpt_last
+            slte_due = slte_last + (year + (month * 6)) if slte_last is not None else slte_last
+    output = (str(datetime.fromtimestamp(dltp_due))[:10], str(datetime.fromtimestamp(slte_due))[:10])
+    return output
+    

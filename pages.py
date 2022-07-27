@@ -130,7 +130,7 @@ class Pages():
         def upload():
             with st.expander('Upload/Download Files'):
                 try:
-                    st.download_button('📥 Download myLanguageHours', data=to_excel(self.user['Entries']))
+                    st.download_button('📥 Download myLanguageHours', data=to_excel(self.user['Entries']), file_name='EntryHistory.xlsx')
                 except:
                     pass
                 file = st.file_uploader('Upload 623A or ILTP', type=['pdf', 'txt', 'docx'])
