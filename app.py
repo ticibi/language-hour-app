@@ -178,21 +178,19 @@ class GServices:
                 files.extend(r.get('files'))
             return files
 
-        def download_file(self, file_name, file_id):
-            r = self.drive.files.get_media(fileId=file_id)
-            data = BytesIO()
+        def download_file(self, file_id):
             try:
-                download = MediaIoBaseDownload(fd=data, request=r)
+                request = self.drive.files().get_media(fileId=file_id)
+                file = BytesIO()
+                download = MediaIoBaseDownload(file, request)
+                done = False
+                while done is False:
+                    status, done = download.next_chunk()
             except HTTPError as e:
                 print(e)
-            done = False
-            while not done:
-                status, done = download.next_chunk()
-            data.seek(0)
-            with open(os.path.join('./LanguageHourFiles', file_name), 'wb') as f:
-                f.write(data.read())
-                f.close()
-            return data
+                file = None
+
+            return file
 
         def upload_file(self, file, folder_name):
             with open(f"temp/{file.name}", "wb") as f:
@@ -518,29 +516,18 @@ class Pages:
                     cols[1].markdown(f'<p style="color:{color}">{hrs_done}/{hrs_req} hrs</p>', unsafe_allow_html=True)
 
         def files():
-            with st.expander('[beta] My Files'):
+            with st.expander('My Files'):
                 files = self.user['Files']
                 if not files:
                     st.sidebar.warning('no files')
-                else:
-                    for file in files:
-                        if st.button(file['name'], key=file['id']):
-                            try:
-                                r = service.drive.drive.files().get_media(fileId=file['id'])
-                                file_bytes = BytesIO()
-                                download = MediaIoBaseDownload(file_bytes, r)
-                                done = False
-                                while done is False:
-                                    status, done = download.next_chunk()
-                                    st.progress(value=status.progress())
-                            except HTTPError as e:
-                                print(e)
-                                file_bytes = None
-                                st.warning('failed to load file')
-                            with open(f"temp/{file['name']}", "wb") as f:
-                                f.write(file_bytes.getbuffer())
-                            os.remove(f"temp/{file['name']}")
-
+                    return
+                for file in files:
+                    try:
+                        if st.download_button(file['name'], data=service.drive.download_file(file['id']), file_name=file['name']):
+                            self.user['Files'] = service.drive.get_files(self.user['Name'])
+                    except Exception as e:
+                        print(e)
+     
         def program_info():
             with st.expander('[beta] Program Info'):
                 st.markdown('''
@@ -574,7 +561,7 @@ class Pages:
             if 'admin' in st.session_state.current_user['Flags']: scores()
             subs()
             upload()
-            if 'admin' in st.session_state.current_user['Flags']: files()
+            files()
             if 'admin' in st.session_state.current_user['Flags']: settings() 
             if 'admin' in st.session_state.current_user['Flags']: program_info()
 
@@ -606,7 +593,6 @@ class Pages:
                     st.session_state.total_month_all = data
 
     def admin_sidebar(self):
-        st.sidebar.subheader('Admin')
         def add_member():
             with st.expander('Add Member'):
                 with st.form('Add Member'):
@@ -665,9 +651,24 @@ class Pages:
                         if confirm:
                             service.log(f'removed member {member}', worksheet_id=st.session_state.config['HourTracker'])
 
-        with st.sidebar:
-            add_member()
-            member_actions()
+        def admin_actions():
+                with st.expander('Admin Actions'):
+                    if st.button('Create Folders', help="create folders for all members if it doesn't exist"):
+                        try:
+                            count = service.create_folders_bulk()
+                            st.sidebar.success(f"created {count} folders")
+                            service.log(f'created {count} folders', worksheet_id=st.session_state.config['HourTracker'])
+                        except HTTPError as e:
+                            print(e)
+                    if st.button('Create Tabs', help="create tabs for all members if it doesn't exist"):
+                        try:
+                            count = service.create_tabs_bulk()
+                            st.sidebar.success(f"created {count} tabs")
+                            service.log(f'created {count} tabs', worksheet_id=st.session_state.config['HourTracker'])
+                        except HTTPError as e:
+                            print(e)
+
+        def rundown():
             with st.expander('Monthly Rundown'):
                 month = st.selectbox("Select Month", options=calendar.month_name)# [i + 1 for i in range(12)])
                 st.session_state.selected_month = month
@@ -678,21 +679,12 @@ class Pages:
                 #if st.button('Show upcoming SLTEs'):
                 #    pass
 
-            with st.expander('Admin Actions'):
-                if st.button('Create Folders', help="create folders for all members if it doesn't exist"):
-                    try:
-                        count = service.create_folders_bulk()
-                        st.sidebar.success(f"created {count} folders")
-                        service.log(f'created {count} folders', worksheet_id=st.session_state.config['HourTracker'])
-                    except HTTPError as e:
-                        print(e)
-                if st.button('Create Tabs', help="create tabs for all members if it doesn't exist"):
-                    try:
-                        count = service.create_tabs_bulk()
-                        st.sidebar.success(f"created {count} tabs")
-                        service.log(f'created {count} tabs', worksheet_id=st.session_state.config['HourTracker'])
-                    except HTTPError as e:
-                        print(e)
+        with st.sidebar:
+            st.sidebar.subheader('Admin')
+            add_member()
+            member_actions()
+            admin_actions()
+            rundown()
 
             with st.expander('Tracker Links'):
                 st.write(f"[Master Tracker]({URL+MASTER_ID})")
