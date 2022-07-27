@@ -102,53 +102,23 @@ class Pages():
         def update_score():
             self.service.log(f'updated scores', worksheet_id=st.session_state.config['HourTracker'])
 
-        def scores():
-            with st.expander('[beta] My Scores'):
+        def account():
+            def scores():
                 cols = st.columns((1, 1, 1))
                 listening = cols[0].text_input('CLang: Listening', value=self.user['Scores']['CL - Listening'])
                 listening2 = cols[1].text_input('MSA: Listening', value=self.user['Scores']['MSA - Listening'])
                 reading = cols[2].text_input('MSA: Reading', value=self.user['Scores']['MSA - Reading'])
 
-        def account():
-            with st.expander('[beta] My Account'):
+            def login_info():
                 st.text_input('Name', value=self.user['Name'], disabled=True)
                 username = st.text_input('Username', value=self.user['Username'])
                 password = st.text_input('Password', placeholder='enter a new password')
-                button = st.button('Save')
-                if button:
-                    index = get_user_info_index(self.user['Name'])
-                    try:
-                        if username != '':
-                            self.service.update_member(field='username', name='Members', index=index, values=[[username]])
-                            self.service.log(f'updated username to {username}')
-                            del username
-                        if password != '':
-                            self.service.update_member(field='password', name='Members', index=index, values=[[password]])
-                            self.service.log(f'updated password')
-                            del password
-                        st.info('info updated')
-                    except Exception as e:
-                        st.warning('failed to update')
-                        print(e)
 
-        def upload():
-            with st.expander('Upload/Download Files'):
-                try:
-                    st.download_button('📥 Download myLanguageHours', data=to_excel(self.user['Entries']), file_name='EntryHistory.xlsx')
-                except:
-                    pass
-                file = st.file_uploader('Upload 623A or ILTP', type=['pdf', 'txt', 'docx'])
-                st.write('NOTE FOR 623A ENTRIES: be sure to submit an entry annotating "623 upload" with the number of hours after uploading the pdf')
-                if file:
-                    with st.spinner('uploading...'):
-                        try:
-                            self.service.drive.upload_file(file, folder_name=self.user['Name'])
-                            st.sidebar.success('file uploaded')
-                            self.service.log(f'uploaded {file.type} file named "{file.name}"')
-                        except Exception as e:
-                            st.sidebar.error('could not upload file :(')
-                            raise e
-                    os.remove(f"temp/{file.name}")
+            with st.expander('[beta] My Account'):
+                st.write('Login Info')
+                login_info()
+                st.write('My Scores')
+                scores()
 
         def subs():
             with st.expander('My Troops', expanded=True):
@@ -163,17 +133,37 @@ class Pages():
                     cols[1].markdown(f'<p style="color:{color}">{hrs_done}/{hrs_req} hrs</p>', unsafe_allow_html=True)
 
         def files():
+            def upload():
+                file = st.file_uploader('Upload 623A or ILTP', type=['pdf', 'txt', 'docx'])
+                if file:
+                    with st.spinner('uploading...'):
+                        try:
+                            self.service.drive.upload_file(file, folder_name=self.user['Name'])
+                            st.sidebar.success('file uploaded')
+                            self.service.log(f'uploaded {file.type} file named "{file.name}"')
+                        except Exception as e:
+                            st.sidebar.error('could not upload file :(')
+                            raise e
+                    os.remove(f"temp/{file.name}")
+
+            def download():
+                 if self.user['Entries'].size > 0:
+                    st.download_button('📥 Download Entry History (excel)', data=to_excel(self.user['Entries']), file_name='EntryHistory.xlsx')
+                    st.write('Stored Files:')
+                    files = self.user['Files']
+                    if not files:
+                        st.write('No files')
+                        return
+                    for file in files:
+                        try:
+                            if st.download_button(file['name'], data=self.service.drive.download_file(file['id']), file_name=file['name']):
+                                self.user['Files'] = self.service.drive.get_files(self.user['Name'])
+                        except Exception as e:
+                            print(e)
+
             with st.expander('My Files'):
-                files = self.user['Files']
-                if not files:
-                    st.write('No files')
-                    return
-                for file in files:
-                    try:
-                        if st.download_button(file['name'], data=self.service.drive.download_file(file['id']), file_name=file['name']):
-                            self.user['Files'] = self.service.drive.get_files(self.user['Name'])
-                    except Exception as e:
-                        print(e)
+                upload()
+                download()
      
         def program_info():
             with st.expander('[beta] Program Info'):
@@ -204,10 +194,8 @@ class Pages():
 
         with st.sidebar:
             st.subheader(f'Welcome {self.welcome_message()}!')
-            if 'admin' in st.session_state.current_user['Flags']: account()
-            if 'admin' in st.session_state.current_user['Flags']: scores()
             subs()
-            upload()
+            if 'admin' in st.session_state.current_user['Flags']: account()
             files()
             if 'admin' in st.session_state.current_user['Flags']: settings() 
             if 'admin' in st.session_state.current_user['Flags']: program_info()
