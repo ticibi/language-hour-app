@@ -458,12 +458,12 @@ class Pages:
         def scores():
             with st.expander('[beta] My Scores'):
                 cols = st.columns((1, 1, 1))
-                listening = cols[0].text_input('CLang: Listening', value=self.user['Scores']['CL - Listening'], on_change=update_score())
-                listening2 = cols[1].text_input('MSA: Listening', value=self.user['Scores']['MSA - Listening'], on_change=update_score())
-                reading = cols[2].text_input('MSA: Reading', value=self.user['Scores']['MSA - Reading'], on_change=update_score())
+                listening = cols[0].text_input('CLang: Listening', value=self.user['Scores']['CL - Listening'])
+                listening2 = cols[1].text_input('MSA: Listening', value=self.user['Scores']['MSA - Listening'])
+                reading = cols[2].text_input('MSA: Reading', value=self.user['Scores']['MSA - Reading'])
 
-        def info():
-            with st.expander('[beta] My Info'):
+        def account():
+            with st.expander('[beta] My Account'):
                 st.text_input('Name', value=self.user['Name'], disabled=True)
                 username = st.text_input('Username', value=self.user['Username'])
                 password = st.text_input('Password', placeholder='enter a new password')
@@ -519,7 +519,7 @@ class Pages:
             with st.expander('My Files'):
                 files = self.user['Files']
                 if not files:
-                    st.sidebar.warning('no files')
+                    st.write('No files')
                     return
                 for file in files:
                     try:
@@ -557,7 +557,7 @@ class Pages:
 
         with st.sidebar:
             st.subheader(f'Welcome {self.welcome_message()}!')
-            if 'admin' in st.session_state.current_user['Flags']: info()
+            if 'admin' in st.session_state.current_user['Flags']: account()
             if 'admin' in st.session_state.current_user['Flags']: scores()
             subs()
             upload()
