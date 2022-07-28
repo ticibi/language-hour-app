@@ -108,13 +108,21 @@ class Pages():
                 listening = cols[0].text_input('CLang: Listening', value=self.user['Scores']['CL - Listening'])
                 listening2 = cols[1].text_input('MSA: Listening', value=self.user['Scores']['MSA - Listening'])
                 reading = cols[2].text_input('MSA: Reading', value=self.user['Scores']['MSA - Reading'])
+                save = st.button('Save my scores')
+                if save:
+                    self.user['Scores']['CL - Listening'] = listening
+                    self.user['Scores']['MSA - Listening'] = listening2
+                    self.user['Scores']['MSA - Reading'] = reading
 
             def login_info():
                 st.text_input('Name', value=self.user['Name'], disabled=True)
                 username = st.text_input('Username', value=self.user['Username'])
                 password = st.text_input('Password', placeholder='enter a new password')
+                save = st.button('save my login info')
+                if save:
+                    self.user['Username'] = username
 
-            with st.expander('[beta] My Account'):
+            with st.expander('[this doesnt work] My Account'):
                 st.write('Login Info')
                 login_info()
                 st.write('My Scores')
@@ -182,7 +190,7 @@ class Pages():
                     return False
                 return True if st.session_state.current_user['Report'] else False
 
-            with st.expander('[beta] Preferences'):
+            with st.expander('[this doesnt work] Preferences'):
                 st.session_state.current_user['Reminder'] = 'x' if st.checkbox('Receive e-mail reminders', value=_check_reminder()) else ''
                 st.session_state.current_user['Report'] = 'x' if st.checkbox('Receive monthly reports', value=_check_report()) else ''
                 st.text_input(
@@ -260,7 +268,7 @@ class Pages():
                             'Dialects': dialects if dialects else '',
                             'Mentor': mentor if mentor else '',
                             'Supervisor': supe,
-                            'Flags': flags if flags else '',
+                            'Flags': ' '.join(flags) if flags else '',
                         }
                         try:
                             self.service.add_member(user_data)

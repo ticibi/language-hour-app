@@ -1,11 +1,13 @@
+from datetime import date, datetime
+from io import BytesIO
+from urllib.error import HTTPError
+
 import streamlit as st
 import pandas as pd
-from io import BytesIO
 from google.oauth2 import service_account
-from urllib.error import HTTPError
-from datetime import date, datetime
 from googleapiclient.discovery import build, MediaFileUpload
 from googleapiclient.http import MediaIoBaseDownload
+
 import inspect
 import config
 
@@ -92,7 +94,7 @@ class GServices:
                 spreadsheetId=worksheet_id,
                 range=f"{tab_name}!{range}",
                 body=dict(values=data),
-                valueInputOption="USER_ENTERED",
+                valueInputOption='USER_ENTERED',
             ).execute()
 
         def batch_update(self, body, worksheet_id):
@@ -105,6 +107,18 @@ class GServices:
             except HTTPError as e:
                 print(e)
             return r
+
+        def update_values(self, values:list, tab_name, worksheet_id, range):
+            values = [values]
+            body = {
+                'values': values,
+            }
+            request = self.sheets.spreadsheets().values().update(
+                spreadsheetId=worksheet_id,
+                range=range,
+                valueInputOption='USER_ENTERED',
+                body=body,
+            ).execute()
 
     class Drive:
         def __init__(self, credentials):
