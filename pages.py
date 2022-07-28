@@ -15,6 +15,8 @@ class Pages():
 
     def welcome_message(self):
         return '🦢 Silly Goose' if contains(st.session_state.current_user['Flags'], 'sg') else st.session_state.current_user['Name']
+        return '👨‍🍳 Mmmmmm!!!' if contains(st.session_state.current_user['Flags'], 'mmm') else st.session_state.current_user['Name']
+        return '🐶 ام ماكس' if contains(st.session_state.current_user['Flags'], 'max') else st.session_state.current_user['Name']
 
     def history_expander(self):
         if self.user['Entries'].size < 1:
@@ -61,17 +63,17 @@ class Pages():
             hours_req = calculate_hours_required(self.user['Scores'])
             hours = cols[1].text_input(f"Hours - {hours_done}/{hours_req} hrs completed")
             cols = st.columns((2, 1))
-            desc = cols[0].text_area("Description", height=150, placeholder='be detailed!')
-            vocab = cols[1].text_area("Vocab", height=150, placeholder='list vocab you learned/reviewed')
+            desc = cols[0].text_area("Description", height=150, placeholder='Be detailed!')
+            vocab = cols[1].text_area("Vocab", height=150, placeholder='List vocab you learned/reviewed')
             cols = st.columns(2)
             if cols[0].form_submit_button("Submit"):
                 if contains(hours, 'test'):
                     hours = 0
                 elif not hours.isdigit():
-                    st.warning('you need study for more than 0 hours...')
+                    st.warning('🕓 You need to study for more than 0 hours...')
                     return
                 if not desc:
-                    st.warning('you need to describe what you studied...')
+                    st.warning('❗ You need to describe what you studied...')
                     return
                 try:
                     self.service.sheets.write_data(
@@ -85,7 +87,7 @@ class Pages():
                             ' '.join(vocab.split() if vocab else '')
                             ]]
                         )
-                    st.success('entry submitted!')
+                    st.success('Entry submitted! 🎉')
                     st.balloons()
                     st.session_state.entries = self.service.sheets.get_data(columns=None, worksheet_id=st.session_state.config['HourTracker'], tab_name=self.user['Name'])
                     self.service.log(f'submit {hours} hrs', worksheet_id=st.session_state.config['HourTracker'])
@@ -117,12 +119,26 @@ class Pages():
             def login_info():
                 st.text_input('Name', value=self.user['Name'], disabled=True)
                 username = st.text_input('Username', value=self.user['Username'])
-                password = st.text_input('Password', placeholder='enter a new password')
-                save = st.button('save my login info')
+                password = st.text_input('Password', placeholder='Enter a new password')
+                save = st.button('Save my login info')
                 if save:
                     self.user['Username'] = username
 
-            with st.expander('[this doesnt work] My Account'):
+            ''' 
+            for resetting passwords...
+            
+            import streamlit_authenticator as stauth
+            
+            def pw_reset():
+                # if user clicks on the change/reset pw button or something
+                    try:
+                        if authenticator.reset_password(username, 'Reset password'):
+                            st.success('Password updated')
+                    except Exception as e:
+                        st.error(e)
+            '''
+            
+            with st.expander('[this doesnt work] My Account'):      " <--- what is this for? "
                 st.write('Login Info')
                 login_info()
                 st.write('My Scores')
@@ -144,13 +160,13 @@ class Pages():
             def upload():
                 file = st.file_uploader('Upload 623A or ILTP', type=['pdf', 'txt', 'docx'])
                 if file:
-                    with st.spinner('uploading...'):
+                    with st.spinner('Uploading...'):
                         try:
                             self.service.drive.upload_file(file, folder_name=self.user['Name'])
-                            st.sidebar.success('file uploaded')
+                            st.sidebar.success('File uploaded')
                             self.service.log(f'uploaded {file.type} file named "{file.name}"')
                         except Exception as e:
-                            st.sidebar.error('could not upload file :(')
+                            st.sidebar.error('Could not upload file :(')
                             raise e
                     os.remove(f"temp/{file.name}")
 
@@ -211,7 +227,7 @@ class Pages():
     def admin_page(self):
         if st.session_state.show_total_month_hours:
             with st.expander(f'Monthly Hours Rundown - {st.session_state.selected_month}', expanded=True):
-                with st.spinner('calculating who done messed up...'):
+                with st.spinner('Calculating who done messed up...'):
                     data = []
                     for name in st.session_state.members['Name']:
                         try:
@@ -242,14 +258,14 @@ class Pages():
                     data = st.session_state.score_tracker
                     name = st.text_input(label="Name", placeholder="Last, First")
                     username = st.text_input(label="Username", placeholder="jsmith")
-                    clang = st.selectbox(label="CLang", options=["AP", "AD", "DG",])
+                    clang = st.selectbox(label="CLang", options=["AP", "AD", "DG", "PV", "PF", "PG", "AV", "AN",])
                     iltp = st.selectbox(label="ILTP Status", options=['ILTP', 'RLTP', 'NONE'])
                     slte = st.date_input(label="SLTE Date")
                     dlpt = st.date_input(label="DLPT Date")
                     cll = st.text_input(label="CL - Listening")
                     msal = st.text_input(label="MSA - Listening")
                     msar = st.text_input(label="MSA - Reading")
-                    dialects = st.text_input(label="Dialects", placeholder="only score of 2 or higher")
+                    dialects = st.text_input(label="Dialects", placeholder="Only scores 2 or higher")
                     mentor = st.text_input(label="Mentor")
                     supe = st.selectbox(label="Supervisor", options=[x for x in st.session_state.members['Name'].tolist()])
                     flags = st.multiselect(label="Flags", options=['admin', 'dev'])
@@ -272,10 +288,10 @@ class Pages():
                         }
                         try:
                             self.service.add_member(user_data)
-                            self.service.log(f'added member {username}')
+                            self.service.log(f'Ddded member {username}')
                         except Exception as e:
                             print(e)
-                            st.error('failed to add member')
+                            st.error('Failed to add member')
 
         def member_actions():
             with st.expander('Member Actions'):
@@ -292,22 +308,22 @@ class Pages():
                     if remove_button:
                         confirm = st.button(f'Confirm Removal of "{member}"')
                         if confirm:
-                            self.service.log(f'removed member {member}', worksheet_id=st.session_state.config['HourTracker'])
+                            self.service.log(f'Removed member {member}', worksheet_id=st.session_state.config['HourTracker'])
 
         def admin_actions():
                 with st.expander('Admin Actions'):
-                    if st.button('Create Folders', help="create folders for all members if it doesn't exist"):
+                    if st.button('Create Folders', help="Create folders for all members if it doesn't exist"):
                         try:
                             count = self.service.create_folders_bulk()
-                            st.sidebar.success(f"created {count} folders")
-                            self.service.log(f'created {count} folders', worksheet_id=st.session_state.config['HourTracker'])
+                            st.sidebar.success(f"Created {count} folders")
+                            self.service.log(f'Created {count} folders', worksheet_id=st.session_state.config['HourTracker'])
                         except HTTPError as e:
                             print(e)
-                    if st.button('Create Tabs', help="create tabs for all members if it doesn't exist"):
+                    if st.button('Create Tabs', help="Create tabs for all members if it doesn't exist"):
                         try:
                             count = self.service.create_tabs_bulk()
-                            st.sidebar.success(f"created {count} tabs")
-                            self.service.log(f'created {count} tabs', worksheet_id=st.session_state.config['HourTracker'])
+                            st.sidebar.success(f"Created {count} tabs")
+                            self.service.log(f'Created {count} tabs', worksheet_id=st.session_state.config['HourTracker'])
                         except HTTPError as e:
                             print(e)
 
