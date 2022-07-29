@@ -36,8 +36,8 @@ class Authenticator:
         if not st.session_state.authenticated:
             with st.form(header):
                 st.subheader(header)
-                username = st.text_input('Username').lower()
-                password = st.text_input('Password', type='password')
+                username = st.text_input('Username', placeholder='example: jsmith').lower()
+                password = st.text_input('Password', type='password').lower()
                 login = st.form_submit_button(header)
                 if login:
                     self.authenticate(username, password)
