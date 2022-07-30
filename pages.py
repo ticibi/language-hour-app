@@ -2,9 +2,10 @@ from operator import contains
 import streamlit as st
 import pandas as pd
 import calendar
+from datetime import datetime
 from urllib.error import HTTPError
 import os
-from utils import calculate_hours_done_this_month, calculate_hours_required, get_user_info_index, to_excel
+from utils import calculate_hours_done_this_month, to_date, calculate_hours_required, get_user_info_index, to_excel, check_due_dates
 import config
 
 
@@ -98,7 +99,39 @@ class Pages():
                     st.error('Could not submit entry :(')
                     raise e
 
+    def banner(self):
+        today = datetime.today().timestamp()
+        due_dates = check_due_dates(self.user['Scores'])
+        one_month = 2628000.0
+        one_week = 604800.0
+        one_day = 86400.0
+        #prefs =  st.session_state.preferences['DLPT Warning'].split('-') # namedtuple(min, max)
+
+        def format_duedate(date: float) -> int:
+            return int((date-today)//one_day)
+
+        # DLPT due date banner
+        if today <= due_dates[0] - one_week * 2 and today >= due_dates[0] - one_month * 3:
+            st.warning(f'Your DLPT is due in {format_duedate(due_dates[0])} days')
+
+        elif today <= due_dates[0] and today > due_dates[0] - one_week * 2:
+            st.error(f'GOOD-BYE FLPB :( Your DLPT is due in {format_duedate(due_dates[0])} days')
+
+        else:
+            st.info(f'Your DLPT is due in {format_duedate(due_dates[0])} days')
+
+        # SLTE due date banner
+        if today >= due_dates[1] - one_month and today <= due_dates[1] - one_month * 3:
+            st.warning(f'You are due for a SLTE in {format_duedate(due_dates[1])} days')
+
+        elif today <= due_dates[1] and today > due_dates[1] - one_month:
+            st.error(f'GOOD-BYE FLPB :(. Your SLTE is due in {format_duedate(due_dates[1])} days')
+
+        else:
+            st.info(f'You are due for a SLTE {format_duedate(due_dates[1])} days')
+        
     def main_page(self):
+        self.banner()
         self.entry_form()
         self.history_expander()
         self.mytroops_expander()

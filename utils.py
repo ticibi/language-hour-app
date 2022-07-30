@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import pytz
 from io import BytesIO
 from time import time
 from datetime import datetime
@@ -85,49 +86,44 @@ def get_user_info_index(name):
     index = df.loc[df['Name'] ==  name].index[0]
     return index + 1
 
-def check_due_date(scores: dict) -> tuple:
-    '''
-    Return date range as tuple
-    dlpt date range 3mo before due month - due month
-    slte date range 3mo before min (12mo) - 6mo before max (2/2 - 18mo, 3/3 - 36mo, under 2 - 12mo)
-
-    Fx reads 2 columns (CLang-L and CLang-R)
-    if 3/3 then dlpt due date range = (lastDLPT + 21mo) to (lastDLPT + 24mo)
-        and slte due date range = (lastSLTE + 9mo) to (lastSLTE + 36mo)
-    else dlpt due date range = (lastDLPT + 9mo) to (lastDLPT + 12mo)
-        and slte due date range = (lastSLTE + 9mo) to (lastSLTE + 18mo)
-    '''
+def check_due_dates(scores: dict) -> tuple:
+    '''return range as tuple (dlpt due, slte due)'''
     str_format = '%m/%d/%Y'
-    year = 31536000.0
-    month = 2628000.0
-    if not scores['DLPT Date']:
-        dlpt_last = None
-    else:
-        dlpt_last = datetime.strptime(scores['DLPT Date'], str_format).timestamp()
+    one_year = 31536000.0
+    one_month = 2628000.0
 
-    if not scores['SLTE Date']:
-        slte_last = None
-    else:
-        slte_last = datetime.strptime(scores['SLTE Date'], str_format).timestamp()
+    listen = scores[config.CLANG_L].strip("+")
+    read = scores[config.CLANG_R].strip("+")
+
+    last_dlpt = datetime.strptime(scores[config.DLTP_DATE], str_format).timestamp()
+    last_slte = datetime.strptime(scores[config.SLTE_DATE], str_format).timestamp()
+
+    def calculate_next_dlpt_date(last_date):
+        if int(listen) >= 3 and int(read) >= 3:
+            _next_dlpt = last_date + one_year * 2
         
+        elif int(listen) >= 2 and int(read) >= 2:
+            _next_dlpt = last_date + one_year
+
+        elif int(listen) < 2 and int(read) < 2:
+            _next_dlpt = last_date + one_year
+        return _next_dlpt
     
-    if scores['CLang'] in ['AD']:
-        if scores['MSA - Listening'] == '3' and ['MSA - Reading'] == '3':
-            dltp_due = dlpt_last + (year * 2) if slte_last is not None else dlpt_last
-            slte_due = slte_last + (year * 2) if slte_last is not None else slte_last
-        else:
-            dltp_due = dlpt_last + year if slte_last is not None else dlpt_last
-            slte_due = slte_last + (year + (month * 6)) if slte_last is not None else slte_last
-    elif scores['CLang'] in ['AP', 'DG']:
-        if scores['CL - Listening'] == '3' and ['MSA - Reading'] == '3':
-            dltp_due = dlpt_last + (year * 2) if slte_last is not None else dlpt_last
-            slte_due = slte_last + (year * 2) if slte_last is not None else slte_last
-        else:
-            dltp_due = dlpt_last + year if slte_last is not None else dlpt_last
-            slte_due = slte_last + (year + (month * 6)) if slte_last is not None else slte_last
-            
-    output = (str(datetime.fromtimestamp(dltp_due))[:10], str(datetime.fromtimestamp(slte_due))[:10])
-    return output
+    def calculate_next_slte_date(last_date):
+        if int(listen) >= 3 and int(read) >= 3:
+            _next_slte = last_date + one_month * 36
+        
+        elif int(listen) >= 2 and int(read) >= 2:
+            _next_slte = last_date + one_month * 18
+
+        elif int(listen) < 2 and int(read) < 2:
+            _next_slte = last_date + one_month * 12
+        return _next_slte
+
+    next_dlpt = calculate_next_dlpt_date(last_dlpt)
+    next_slte = calculate_next_slte_date(last_slte)
     
-    
-    
+    return (next_dlpt, next_slte)
+
+def to_date(bignumber):
+    return datetime.fromtimestamp(bignumber, tz=pytz.timezone('US/Eastern'))

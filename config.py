@@ -18,3 +18,5 @@ MEMBERS = 'Members'
 DICODES = ['AU', 'AP', 'AE', 'DG', 'AD', 'AV', 'PV', 'PG', 'PF']
 CLANG_L = 'CLang L'
 CLANG_R = 'CLang R'
+DLTP_DATE = 'DLPT Date'
+SLTE_DATE = 'SLTE Date'
