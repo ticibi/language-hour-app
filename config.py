@@ -20,3 +20,8 @@ CLANG_L = 'CLang L'
 CLANG_R = 'CLang R'
 DLTP_DATE = 'DLPT Date'
 SLTE_DATE = 'SLTE Date'
+SLTE_RANGE = {
+    str(3): 24,
+    str(2): 18,
+    str(1): 12,
+}

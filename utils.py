@@ -80,7 +80,6 @@ def calculate_hours_required(data: dict) -> int:
         r_value = _eval(read)
         return table[l_value + r_value]
 
-
 def get_user_info_index(name):
     df = st.session_state.members
     index = df.loc[df['Name'] ==  name].index[0]
@@ -122,13 +121,13 @@ def check_due_dates(scores: dict) -> tuple:
         if last_date == -1:
             return -1
         if int(listen) >= 3 and int(read) >= 3:
-            _next_slte = last_date + one_month * 36
+            _next_slte = last_date + one_month * config.SLTE_RANGE['3']
         
         elif int(listen) >= 2 and int(read) >= 2:
-            _next_slte = last_date + one_month * 18
+            _next_slte = last_date + one_month * config.SLTE_RANGE['2']
 
         elif int(listen) < 2 and int(read) < 2:
-            _next_slte = last_date + one_month * 12
+            _next_slte = last_date + one_month * config.SLTE_RANGE['1']
         return _next_slte
 
     next_dlpt = calculate_next_dlpt_date(last_dlpt)
