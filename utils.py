@@ -95,10 +95,19 @@ def check_due_dates(scores: dict) -> tuple:
     listen = scores[config.CLANG_L].strip("+")
     read = scores[config.CLANG_R].strip("+")
 
-    last_dlpt = datetime.strptime(scores[config.DLTP_DATE], str_format).timestamp()
-    last_slte = datetime.strptime(scores[config.SLTE_DATE], str_format).timestamp()
+    if scores[config.DLTP_DATE] != '':
+        last_dlpt = datetime.strptime(scores[config.DLTP_DATE], str_format).timestamp()
+    else:
+        last_dlpt = -1
+
+    if scores[config.SLTE_DATE] != '':
+        last_slte = datetime.strptime(scores[config.SLTE_DATE], str_format).timestamp()
+    else:
+        last_slte = -1
 
     def calculate_next_dlpt_date(last_date):
+        if last_date == -1:
+            return -1
         if int(listen) >= 3 and int(read) >= 3:
             _next_dlpt = last_date + one_year * 2
         
@@ -110,6 +119,8 @@ def check_due_dates(scores: dict) -> tuple:
         return _next_dlpt
     
     def calculate_next_slte_date(last_date):
+        if last_date == -1:
+            return -1
         if int(listen) >= 3 and int(read) >= 3:
             _next_slte = last_date + one_month * 36
         

@@ -25,7 +25,7 @@ class Pages():
     def history_expander(self):
         if self.user['Entries'].size < 1:
             return
-        with st.expander('Show My LANGUAGE HOUR History'):
+        with st.expander('Show My Language Hour History'):
             try:
                 self.service.update_entries(self.user['Name'], worksheet_id=st.session_state.config['HourTracker'])
                 st.table(self.user['Entries'])
@@ -42,6 +42,44 @@ class Pages():
                 hrs_req = calculate_hours_required(self.user['Subs'][sub]['Scores'])
                 color = 'green' if hrs_done >= hrs_req else 'red'
                 st.markdown(f'<p style="color:{color}">{hrs_done}/{hrs_req} hrs</p>', unsafe_allow_html=True)
+        
+                '''DLPT and SLTE due date banner thing'''
+                today = datetime.today().timestamp()
+                due_dates = check_due_dates(self.user['Subs'][sub]['Scores'])
+                one_month = 2628000.0
+                one_week = 604800.0
+                one_day = 86400.0
+                #prefs =  st.session_state.preferences['DLPT Warning'].split('-') # namedtuple(min, max)
+
+                def format_duedate(date: float) -> str:
+                    if date == -1:
+                        return 'N/A'
+                    else:
+                        return str(int((date-today)//one_day))
+
+                # DLPT due date banner
+                if due_dates[0] == -1:
+                    dlpt_color = 'dodgerblue'
+                elif today <= due_dates[0] - one_week * 2 and today >= due_dates[0] - one_month * 3:
+                    dlpt_color = 'gold'
+                elif today <= due_dates[0] and today > due_dates[0] - one_week * 2:
+                    dlpt_color = 'red'
+                else:
+                   dlpt_color = 'green'
+
+                # SLTE due date banner
+                if due_dates[1] == -1:
+                    slte_color = 'dodgerblue'
+                elif today >= due_dates[1] - one_month and today <= due_dates[1] - one_month * 3:
+                    slte_color = 'gold'
+                elif today <= due_dates[1] and today > due_dates[1] - one_month:
+                    slte_color = 'red'
+                else:
+                    slte_color = 'green'
+
+                st.markdown(f'<p style="color:{dlpt_color}">DLPT due in {format_duedate(due_dates[0])} days</p>', unsafe_allow_html=True)
+                st.markdown(f'<p style="color:{slte_color}">SLTE due in {format_duedate(due_dates[1])} days</p>', unsafe_allow_html=True)
+
                 scores = self.user['Subs'][sub]['Scores']
                 del scores['Name']
                 st.dataframe(pd.DataFrame(scores, index=[0]))
