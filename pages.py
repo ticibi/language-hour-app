@@ -58,9 +58,7 @@ class Pages():
                         return str(int((date-today)//one_day))
 
                 # DLPT due date banner
-                if due_dates[0] == -1:
-                    dlpt_color = 'dodgerblue'
-                elif today <= due_dates[0] - one_week * 2 and today >= due_dates[0] - one_month * 3:
+                if today <= due_dates[0] - one_week * 2 and today >= due_dates[0] - one_month * 3:
                     dlpt_color = 'gold'
                 elif today <= due_dates[0] and today > due_dates[0] - one_week * 2:
                     dlpt_color = 'red'
@@ -68,9 +66,7 @@ class Pages():
                    dlpt_color = 'green'
 
                 # SLTE due date banner
-                if due_dates[1] == -1:
-                    slte_color = 'dodgerblue'
-                elif today >= due_dates[1] - one_month and today <= due_dates[1] - one_month * 3:
+                if today >= due_dates[1] - one_month and today <= due_dates[1] - one_month * 3:
                     slte_color = 'gold'
                 elif today <= due_dates[1] and today > due_dates[1] - one_month:
                     slte_color = 'red'
