@@ -15,4 +15,4 @@ SCOPES = [
 INFO = 'Info'
 MAIN = 'Main'
 MEMBERS = 'Members'
-
+DICODES = ['AU', 'AP', 'AE', 'DG', 'AD', 'AV', 'PV', 'PG', 'PF']
