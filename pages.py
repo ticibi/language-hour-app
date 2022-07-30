@@ -14,9 +14,12 @@ class Pages():
         self.user = st.session_state.current_user
 
     def welcome_message(self):
-        return '🦢 Silly Goose' if contains(st.session_state.current_user['Flags'], 'sg') else st.session_state.current_user['Name']
-        return '😋 Mmmmm~!!!' if contains(st.session_state.current_user['Flags'], 'mmm') else st.session_state.current_user['Name']
-        return '🐶 Oom Max' if contains(st.session_state.current_user['Flags'], 'max') else st.session_state.current_user['Name']
+        msg = ''
+        if contains(st.session_state.current_user['Flags'], 'sg'): msg = '🦢 Silly Goose'
+        elif contains(st.session_state.current_user['Flags'], 'mmm'): msg = '😋 Mmmmm~!!!'
+        elif contains(st.session_state.current_user['Flags'], 'max'): msg = '🐶 Oom Max' 
+        else: st.session_state.current_user['Name']
+        return msg
 
     def history_expander(self):
         if self.user['Entries'].size < 1:
@@ -107,14 +110,12 @@ class Pages():
         def account():
             def scores():
                 cols = st.columns((1, 1, 1))
-                listening = cols[0].text_input('CLang: Listening', value=self.user['Scores']['CL - Listening'])
-                listening2 = cols[1].text_input('MSA: Listening', value=self.user['Scores']['MSA - Listening'])
-                reading = cols[2].text_input('MSA: Reading', value=self.user['Scores']['MSA - Reading'])
+                listening = cols[0].text_input('CLang: Listening', value=self.user['Scores'][config.CLANG_L])
+                reading = cols[2].text_input('MSA: Reading', value=self.user['Scores'][config.CLANG_R])
                 save = st.button('Save my scores')
                 if save:
-                    self.user['Scores']['CL - Listening'] = listening
-                    self.user['Scores']['MSA - Listening'] = listening2
-                    self.user['Scores']['MSA - Reading'] = reading
+                    self.user['Scores'][config.CLANG_L] = listening
+                    self.user['Scores'][config.CLANG_R] = reading
 
             def login_info():
                 st.text_input('Name', value=self.user['Name'], disabled=True)
@@ -231,8 +232,9 @@ class Pages():
                             True: '✅',
                             False: '❌',
                         }
+                        COLS = ['Comments', 'Met', 'Name', 'Hours Done', 'Hours Required']
                         data.append(['', check[float(hrs_done) >= float(hrs_req)], name, hrs_done, hrs_req])
-                    df = pd.DataFrame(data, columns=['Comments', 'Met', 'Name', 'Hours Done', 'Hours Required'])
+                    df = pd.DataFrame(data, columns=COLS)
                     st.table(df)
                     st.session_state.total_month_all = data
 
@@ -247,9 +249,8 @@ class Pages():
                     iltp = st.selectbox(label="ILTP Status", options=['ILTP', 'RLTP', 'NONE'])
                     slte = st.date_input(label="SLTE Date")
                     dlpt = st.date_input(label="DLPT Date")
-                    cll = st.text_input(label="CL - Listening")
-                    msal = st.text_input(label="MSA - Listening")
-                    msar = st.text_input(label="MSA - Reading")
+                    clangl = st.text_input(label=config.CLANG_L)
+                    clangr = st.text_input(label=config.CLANG_R)
                     dialects = st.text_input(label="Dialects", placeholder="Only score of 2 or higher")
                     mentor = st.text_input(label="Mentor")
                     supe = st.selectbox(label="Supervisor", options=[x for x in st.session_state.members['Name'].tolist()])
@@ -263,9 +264,8 @@ class Pages():
                             'ILTP': iltp,
                             'SLTE': str(slte),
                             'DLPT': str(dlpt),
-                            'CL - Listening': cll,
-                            'MSA - Listening': msal,
-                            'MSA - Reading': msar,
+                            config.CLANG_L: clangl,
+                            config.CLANG_R: clangr,
                             'Dialects': dialects if dialects else '',
                             'Mentor': mentor if mentor else '',
                             'Supervisor': supe,

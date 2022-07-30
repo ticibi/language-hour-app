@@ -3,6 +3,7 @@ import pandas as pd
 from io import BytesIO
 from time import time
 from datetime import datetime
+import config
 
 
 def initialize_session_state_variables(vars):
@@ -37,118 +38,81 @@ def calculate_hours_done_this_month(service, name, month=datetime.now().date().m
     hours = sum([int(d[1]) for d in data.values if int(d[0][5:7]) == month])
     return hours
 
-def calculate_hours_required(data):
-    if data is None:
+def calculate_hours_required(data: dict) -> int:
+    if not data or data is None:
         return 0
-    def to_value(score:str):
-        total: float = 0.0
-        if '+' in score:
-            total =+ 0.5
-            score = score.replace('+', '')
-        total += float(score)
-        return total
 
-    def evaluate(score:float):
-        value: int = 0
-        match score:
-            case '5.5': 
-                value = 2,
-            case '5.0': 
-                value = 4,
-            case '4.5': 
-                value = 6,
-            case '4.0': 
-                value = 8,
-            case _:
-                if float(score) >= 6:
-                    value = 0
-                elif float(score) < 4:
-                    value = 12
-        return value
+    def _eval(_string: str):
+            if _string not in BAD + OKAY + GOOD:
+                return
+  
+            value = 0.0
+            if '+' in _string:
+                value += 0.5
+                _string = _string.strip('+')
+                value += float(_string)
+            value = float(_string)
+            return value
 
-    def highest(scores:list, k=2):
-        if k > len(scores):
-            raise ValueError
-        values = sorted(scores, reverse=True)
-        return values[:k]
-    
     BAD = ['1+', '1', '0+', '0']
+    OKAY = ['2', '2+']
     GOOD = ['3', '3+', '4']
 
-    if isinstance(data, pd.DataFrame):
-        if data.empty:
-            return 0
+    listen = data[config.CLANG_L]
+    read = data[config.CLANG_R]
 
-    if isinstance(data, dict):
-        if not data:
-            return 0
+    # if either score is below 2
+    if listen in BAD or read in BAD:
+        return 12
+        
+    # if someone has a 3/3 or higher
+    if listen in GOOD and read in GOOD:
+        return 0
 
-    if data['CLang'] == 'AD':
-        if data['MSA - Listening'] in GOOD and data['MSA - Reading'] in GOOD:
-            return 0
-        if data['MSA - Listening'] in BAD or data['MSA - Reading'] in BAD:
-            return 12
-        else:
-            value = sum([to_value(data['MSA - Listening']), to_value(data['MSA - Reading'])])
-            return evaluate(str(value))[0]
-
-    if data['CLang'] in ['AP', 'DG']:
-        if data['CL - Listening'] in GOOD and data['MSA - Reading'] in GOOD:
-            return 0
-        if data['Dialects']:
-            vals = [v.strip().split(' ')[1] for v in data['Dialects'].split(',')]
-            vals.append(data['CL - Listening'])
-            high = to_value((highest(vals, 1)[0]))
-            value = sum([high, to_value(data['MSA - Reading'])])
-            return evaluate(str(value))[0]
-        else:
-            if data['CL - Listening'] in BAD or data['MSA - Reading'] in BAD:
-                return 12
-            value = sum([to_value(data['CL - Listening']), to_value(data['MSA - Reading'])])
-            return evaluate(str(value))[0]
+    # if someone has a 2
     else:
-        return 999
+        table ={
+            5.5: 2,
+            5.0: 4,
+            4.5: 6,
+            4.0: 8
+        }
+        l_value = _eval(listen)
+        r_value = _eval(read)
+        return table[l_value + r_value]
+
 
 def get_user_info_index(name):
     df = st.session_state.members
     index = df.loc[df['Name'] ==  name].index[0]
     return index + 1
 
+def check_due_date(scores: dict) -> tuple:
+    '''
+    Return date range as tuple
+    dlpt date range 3mo before due month - due month
+    slte date range 3mo before min (12mo) - 6mo before max (2/2 - 18mo, 3/3 - 36mo, under 2 - 12mo)
 
-    
-'''
-Condensed calculate hours function
-No more dialect saving grace so if CLANG below 2, then RLTP --> lang hrs req
-2 columns -- CLANG L & R
-MSA-L --> dialects column
-
-Return date range as tuple
-dlpt date range 3mo before due month - due month
-slte date range 3mo before min (12mo) - 6mo before max (2/2 - 18mo, 3/3 - 36mo, under 2 - 12mo)
-
-Fx reads 2 columns (CLang-L and CLang-R)
-if 3/3 then dlpt due date range = (lastDLPT + 21mo) to (lastDLPT + 24mo)
-    and slte due date range = (lastSLTE + 9mo) to (lastSLTE + 36mo)
-else dlpt due date range = (lastDLPT + 9mo) to (lastDLPT + 12mo)
-    and slte due date range = (lastSLTE + 9mo) to (lastSLTE + 18mo)
-'''
-
-
-def check_due_date(scores: dict) -> tuple: 
-    '''return dlpt due and slte due'''
+    Fx reads 2 columns (CLang-L and CLang-R)
+    if 3/3 then dlpt due date range = (lastDLPT + 21mo) to (lastDLPT + 24mo)
+        and slte due date range = (lastSLTE + 9mo) to (lastSLTE + 36mo)
+    else dlpt due date range = (lastDLPT + 9mo) to (lastDLPT + 12mo)
+        and slte due date range = (lastSLTE + 9mo) to (lastSLTE + 18mo)
+    '''
     str_format = '%m/%d/%Y'
     year = 31536000.0
     month = 2628000.0
-    try:
-        dlpt_last = datetime.strptime(scores['DLPT Date'], str_format).timestamp()
-    except:
+    if not scores['DLPT Date']:
         dlpt_last = None
-    try:
-        slte_last = datetime.strptime(scores['SLTE Date'], str_format).timestamp()
-    except:
+    else:
+        dlpt_last = datetime.strptime(scores['DLPT Date'], str_format).timestamp()
+
+    if not scores['SLTE Date']:
         slte_last = None
+    else:
+        slte_last = datetime.strptime(scores['SLTE Date'], str_format).timestamp()
         
-        
+    
     if scores['CLang'] in ['AD']:
         if scores['MSA - Listening'] == '3' and ['MSA - Reading'] == '3':
             dltp_due = dlpt_last + (year * 2) if slte_last is not None else dlpt_last
