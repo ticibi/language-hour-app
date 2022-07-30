@@ -42,17 +42,15 @@ def calculate_hours_required(data: dict) -> int:
     if not data or data is None:
         return 0
 
-    def _eval(_string: str):
-            if _string not in BAD + OKAY + GOOD:
-                return
-  
-            value = 0.0
-            if '+' in _string:
-                value += 0.5
-                _string = _string.strip('+')
-                value += float(_string)
+    def _eval(_string: str):  
+        value = 0.0
+        if '+' in _string:
+            value += 0.5
+            _string = _string.strip('+')
+            value += float(_string)
+        else:
             value = float(_string)
-            return value
+        return value
 
     BAD = ['1+', '1', '0+', '0']
     OKAY = ['2', '2+']

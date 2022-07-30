@@ -16,5 +16,5 @@ INFO = 'Info'
 MAIN = 'Main'
 MEMBERS = 'Members'
 DICODES = ['AU', 'AP', 'AE', 'DG', 'AD', 'AV', 'PV', 'PG', 'PF']
-CLANG_L = ['CLang L']
-CLANG_R = ['CLang R']
+CLANG_L = 'CLang L'
+CLANG_R = 'CLang R'
