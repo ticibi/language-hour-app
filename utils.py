@@ -114,7 +114,27 @@ def get_user_info_index(name):
     index = df.loc[df['Name'] ==  name].index[0]
     return index + 1
 
-def check_due_date(scores: dict) -> tuple:
+
+    
+'''
+Condensed calculate hours function
+No more dialect saving grace so if CLANG below 2, then RLTP --> lang hrs req
+2 columns -- CLANG L & R
+MSA-L --> dialects column
+
+Return date range as tuple
+dlpt date range 3mo before due month - due month
+slte date range 3mo before min (12mo) - 6mo before max (2/2 - 18mo, 3/3 - 36mo, under 2 - 12mo)
+
+Fx reads 2 columns (CLang-L and CLang-R)
+if 3/3 then dlpt due date range = (lastDLPT + 21mo) to (lastDLPT + 24mo)
+    and slte due date range = (lastSLTE + 9mo) to (lastSLTE + 36mo)
+else dlpt due date range = (lastDLPT + 9mo) to (lastDLPT + 12mo)
+    and slte due date range = (lastSLTE + 9mo) to (lastSLTE + 18mo)
+'''
+
+
+def check_due_date(scores: dict) -> tuple: 
     '''return dlpt due and slte due'''
     str_format = '%m/%d/%Y'
     year = 31536000.0
@@ -127,6 +147,8 @@ def check_due_date(scores: dict) -> tuple:
         slte_last = datetime.strptime(scores['SLTE Date'], str_format).timestamp()
     except:
         slte_last = None
+        
+        
     if scores['CLang'] in ['AD']:
         if scores['MSA - Listening'] == '3' and ['MSA - Reading'] == '3':
             dltp_due = dlpt_last + (year * 2) if slte_last is not None else dlpt_last
@@ -141,6 +163,9 @@ def check_due_date(scores: dict) -> tuple:
         else:
             dltp_due = dlpt_last + year if slte_last is not None else dlpt_last
             slte_due = slte_last + (year + (month * 6)) if slte_last is not None else slte_last
+            
     output = (str(datetime.fromtimestamp(dltp_due))[:10], str(datetime.fromtimestamp(slte_due))[:10])
     return output
+    
+    
     
