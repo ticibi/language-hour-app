@@ -16,7 +16,7 @@ class Pages():
 
     def welcome_message(self):
         msg = ''
-        if contains(st.session_state.current_user['Flags'], 'sg'): msg = '🦢 Silly Goose'
+        if contains(st.session_state.current_user['Flags'], 'sg'): msg = '🦢 Silly Goose 🥜 Boi'
         elif contains(st.session_state.current_user['Flags'], 'mmm'): msg = '😋 Mmmmm~!!!'
         elif contains(st.session_state.current_user['Flags'], 'max'): msg = '🐶 Oom Max' 
         else: msg = st.session_state.current_user['Name']
@@ -185,9 +185,9 @@ class Pages():
         def account():
             def scores():
                 cols = st.columns((1, 1))
-                listening = cols[0].text_input('CLang: Listening', value=self.user['Scores'][config.CLANG_L])
-                reading = cols[1].text_input('CLang: Reading', value=self.user['Scores'][config.CLANG_R])
-                save = st.button('Save my scores')
+                listening = cols[0].text_input('Listening', value=self.user['Scores'][config.CLANG_L])
+                reading = cols[1].text_input('Reading', value=self.user['Scores'][config.CLANG_R])
+                save = st.button('Update my scores')
                 if save:
                     self.user['Scores'][config.CLANG_L] = listening
                     self.user['Scores'][config.CLANG_R] = reading
@@ -196,7 +196,7 @@ class Pages():
                 st.text_input('Name', value=self.user['Name'], disabled=True)
                 username = st.text_input('Username', value=self.user['Username'])
                 password = st.text_input('Password', placeholder='Enter a new password')
-                save = st.button('Save my login info')
+                save = st.button('Update my login info')
                 if save:
                     self.user['Username'] = username
 
