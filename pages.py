@@ -170,7 +170,7 @@ class Pages():
         elif today <= due_dates[1] and today > due_dates[1] - one_month:
             st.error(f'GOOD-BYE FLPB :(. Your SLTE is due in {format_duedate(due_dates[1])} days')
         else:
-            st.info(f'You are due for a SLTE {format_duedate(due_dates[1])} days')
+            st.info(f'You are due for a SLTE in {format_duedate(due_dates[1])} days')
         
     def main_page(self):
         self.banner()
@@ -186,7 +186,7 @@ class Pages():
             def scores():
                 cols = st.columns((1, 1))
                 listening = cols[0].text_input('CLang: Listening', value=self.user['Scores'][config.CLANG_L])
-                reading = cols[1].text_input('MSA: Reading', value=self.user['Scores'][config.CLANG_R])
+                reading = cols[1].text_input('CLang: Reading', value=self.user['Scores'][config.CLANG_R])
                 save = st.button('Save my scores')
                 if save:
                     self.user['Scores'][config.CLANG_L] = listening
