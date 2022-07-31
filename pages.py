@@ -19,7 +19,7 @@ class Pages():
         if contains(st.session_state.current_user['Flags'], 'sg'): msg = '🦢 Silly Goose'
         elif contains(st.session_state.current_user['Flags'], 'mmm'): msg = '😋 Mmmmm~!!!'
         elif contains(st.session_state.current_user['Flags'], 'max'): msg = '🐶 Oom Max' 
-        else: st.session_state.current_user['Name']
+        else: msg = st.session_state.current_user['Name']
         return msg
 
     def history_expander(self):
