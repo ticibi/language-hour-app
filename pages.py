@@ -28,7 +28,7 @@ class Pages():
         with st.expander('Show My Language Hour History'):
             try:
                 self.service.update_entries(self.user['Name'], worksheet_id=st.session_state.config['HourTracker'])
-                st.table(self.user['Entries'])
+                st.table(self.user['Entries'].iloc[::-1])
             except Exception as e:
                 print('[error]', e)
 
