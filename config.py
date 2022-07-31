@@ -25,3 +25,4 @@ SLTE_RANGE = {
     str(2): 18,
     str(1): 12,
 }
+ACTIVITIES = ['Listening', 'Reading', 'Speaking', 'Transcription', 'Vocab', 'SLTE', 'DLPT', 'ILTP upload', '623A upload']
