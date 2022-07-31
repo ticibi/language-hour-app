@@ -5,7 +5,7 @@ import calendar
 from datetime import datetime
 from urllib.error import HTTPError
 import os
-from utils import calculate_hours_done_this_month, to_date, calculate_hours_required, get_user_info_index, to_excel, check_due_dates
+from utils import calculate_hours_done_this_month, to_date, calculate_hours_required, to_excel, check_due_dates
 import config
 
 
@@ -35,6 +35,7 @@ class Pages():
     def mytroops_expander(self):
         if not self.user['Subs']:
             return
+        
         st.subheader('My Troops')
         for sub in self.user['Subs'].keys():
             with st.expander(sub):
@@ -49,7 +50,6 @@ class Pages():
                 one_month = 2628000.0
                 one_week = 604800.0
                 one_day = 86400.0
-                #prefs =  st.session_state.preferences['DLPT Warning'].split('-') # namedtuple(min, max)
 
                 def format_duedate(date: float) -> str:
                     if date == -1:
@@ -73,8 +73,17 @@ class Pages():
                 else:
                     slte_color = 'green'
 
-                st.markdown(f'<p style="color:{dlpt_color}">DLPT due in {format_duedate(due_dates[0])} days</p>', unsafe_allow_html=True)
-                st.markdown(f'<p style="color:{slte_color}">SLTE due in {format_duedate(due_dates[1])} days</p>', unsafe_allow_html=True)
+                dlpt_duedate = to_date(due_dates[0])
+                slte_duedate = to_date(due_dates[1])
+
+                st.markdown(
+                    f'<p style="color:{dlpt_color}">DLPT due {dlpt_duedate}, in {format_duedate(due_dates[0])} days</p>',
+                    unsafe_allow_html=True
+                )
+                st.markdown(
+                    f'<p style="color:{slte_color}">SLTE due {slte_duedate}, in {format_duedate(due_dates[1])} days</p>',
+                    unsafe_allow_html=True
+                )
 
                 scores = self.user['Subs'][sub]['Scores']
                 del scores['Name']
@@ -96,7 +105,7 @@ class Pages():
                 name = cols[0].selectbox("Name", options=options, index=len(options)-1)
             date = cols[1].date_input("Date")
             cols = st.columns((2, 1))
-            mods = cols[0].multiselect("Activity", options=['Listening', 'Reading', 'Speaking', 'Transcription', 'Vocab', 'SLTE', 'DLPT', 'ILTP upload', '623A upload'])
+            mods = cols[0].multiselect("Activity", options=config.ACTIVITIES)
             hours_done = calculate_hours_done_this_month(self.service, name=self.user['Name'])
             hours_req = calculate_hours_required(self.user['Scores'])
             hours = cols[1].text_input(f"Hours - {hours_done}/{hours_req} hrs completed")
@@ -127,7 +136,11 @@ class Pages():
                         )
                     st.success('Entry submitted!')
                     st.balloons()
-                    st.session_state.entries = self.service.sheets.get_data(columns=None, worksheet_id=st.session_state.config['HourTracker'], tab_name=self.user['Name'])
+                    st.session_state.entries = self.service.sheets.get_data(
+                        columns=None,
+                        worksheet_id=st.session_state.config['HourTracker'],
+                        tab_name=self.user['Name']
+                    )
                     self.service.log(f'Submit {hours} hrs', worksheet_id=st.session_state.config['HourTracker'])
                 except Exception as e:
                     st.error('Could not submit entry :(')
@@ -139,7 +152,6 @@ class Pages():
         one_month = 2628000.0
         one_week = 604800.0
         one_day = 86400.0
-        #prefs =  st.session_state.preferences['DLPT Warning'].split('-') # namedtuple(min, max)
 
         def format_duedate(date: float) -> int:
             return int((date-today)//one_day)
@@ -147,20 +159,16 @@ class Pages():
         # DLPT due date banner
         if today <= due_dates[0] - one_week * 2 and today >= due_dates[0] - one_month * 3:
             st.warning(f'Your DLPT is due in {format_duedate(due_dates[0])} days')
-
         elif today <= due_dates[0] and today > due_dates[0] - one_week * 2:
             st.error(f'GOOD-BYE FLPB :( Your DLPT is due in {format_duedate(due_dates[0])} days')
-
         else:
             st.info(f'Your DLPT is due in {format_duedate(due_dates[0])} days')
 
         # SLTE due date banner
         if today >= due_dates[1] - one_month and today <= due_dates[1] - one_month * 3:
             st.warning(f'You are due for a SLTE in {format_duedate(due_dates[1])} days')
-
         elif today <= due_dates[1] and today > due_dates[1] - one_month:
             st.error(f'GOOD-BYE FLPB :(. Your SLTE is due in {format_duedate(due_dates[1])} days')
-
         else:
             st.info(f'You are due for a SLTE {format_duedate(due_dates[1])} days')
         
@@ -176,9 +184,9 @@ class Pages():
 
         def account():
             def scores():
-                cols = st.columns((1, 1, 1))
+                cols = st.columns((1, 1))
                 listening = cols[0].text_input('CLang: Listening', value=self.user['Scores'][config.CLANG_L])
-                reading = cols[2].text_input('MSA: Reading', value=self.user['Scores'][config.CLANG_R])
+                reading = cols[1].text_input('MSA: Reading', value=self.user['Scores'][config.CLANG_R])
                 save = st.button('Save my scores')
                 if save:
                     self.user['Scores'][config.CLANG_L] = listening
@@ -193,9 +201,7 @@ class Pages():
                     self.user['Username'] = username
 
             with st.expander('[this doesnt work] My Account'):
-                st.write('Login Info')
                 login_info()
-                st.write('My Scores')
                 scores()
 
         def subs():
@@ -274,8 +280,8 @@ class Pages():
             subs()
             if 'admin' in st.session_state.current_user['Flags']: account()
             files()
-            if 'admin' in st.session_state.current_user['Flags']: settings() 
-            if 'admin' in st.session_state.current_user['Flags']: program_info()
+            #if 'admin' in st.session_state.current_user['Flags']: settings() 
+            #if 'admin' in st.session_state.current_user['Flags']: program_info()
 
     def admin_page(self):
         if st.session_state.show_total_month_hours:

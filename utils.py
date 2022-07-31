@@ -136,4 +136,4 @@ def check_due_dates(scores: dict) -> tuple:
     return (next_dlpt, next_slte)
 
 def to_date(bignumber):
-    return datetime.fromtimestamp(bignumber, tz=pytz.timezone('US/Eastern'))
+    return datetime.fromtimestamp(bignumber, tz=pytz.timezone('US/Eastern')).strftime('%m/%Y')
