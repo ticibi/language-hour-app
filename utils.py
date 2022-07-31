@@ -8,11 +8,13 @@ import config
 
 
 def initialize_session_state_variables(vars):
+    '''helper function to initialize streamlit session state variables'''
     for var in vars:
         if var not in st.session_state:
             st.session_state[var] = None
 
 def to_excel(df):
+    '''convert dataframe into downloadable excel file'''
     output = BytesIO()
     writer = pd.ExcelWriter(output, engine="xlsxwriter")
     df.to_excel(writer, index=False, sheet_name="MyHistory")
@@ -20,6 +22,7 @@ def to_excel(df):
     return output.getvalue()
 
 def timeit(func):
+    '''time how long a function takes to execute'''
     def wrapper(*args, **kwargs):
         start = time()
         output = func(*args, **kwargs)
@@ -29,14 +32,17 @@ def timeit(func):
     return wrapper
 
 def calculate_hours_done_this_month(service, name, month=datetime.now().date().month):
+    # get entries
     try:
         data = service.sheets.get_data(columns=['Date', 'Hours'], worksheet_id=st.session_state.config['HourTracker'], tab_name=name)
     except Exception as e:
         print(e)
         return 0
+    # if member has no entries
     if data is None:
         return 0
-    hours = sum([int(d[1]) for d in data.values if int(d[0][5:7]) == month])
+    # get sum of hours done during the month
+    hours = sum([int(row[1]) for row in data.values if int(row[0][5:7]) == month])
     return hours
 
 def calculate_hours_required(data: dict) -> int:
@@ -64,11 +70,11 @@ def calculate_hours_required(data: dict) -> int:
     if listen in BAD or read in BAD:
         return 12
         
-    # if someone has a 3/3 or higher
+    # if score is 3+
     if listen in GOOD and read in GOOD:
         return 0
 
-    # if someone has a 2
+    # if score is 2
     else:
         table ={
             5.5: 2,
@@ -81,12 +87,13 @@ def calculate_hours_required(data: dict) -> int:
         return table[l_value + r_value]
 
 def get_user_info_index(name):
+    '''get the index of the row where user data is located'''
     df = st.session_state.members
     index = df.loc[df['Name'] ==  name].index[0]
     return index + 1
 
 def check_due_dates(scores: dict) -> tuple:
-    '''return range as tuple (dlpt due, slte due)'''
+    '''return range as timestamp tuple (DLPT due date, SLTE due date)'''
     str_format = '%m/%d/%Y'
     one_year = 31536000.0
     one_month = 2628000.0
@@ -105,6 +112,7 @@ def check_due_dates(scores: dict) -> tuple:
         last_slte = -1
 
     def calculate_next_dlpt_date(last_date):
+        '''returns next due date as timestamp'''
         if last_date == -1:
             return -1
         if int(listen) >= 3 and int(read) >= 3:
@@ -118,6 +126,7 @@ def check_due_dates(scores: dict) -> tuple:
         return _next_dlpt
     
     def calculate_next_slte_date(last_date):
+        '''returns next due date as timestamp'''
         if last_date == -1:
             return -1
         if int(listen) >= 3 and int(read) >= 3:
@@ -136,4 +145,5 @@ def check_due_dates(scores: dict) -> tuple:
     return (next_dlpt, next_slte)
 
 def to_date(bignumber):
+    '''convert timestamp to EST date'''
     return datetime.fromtimestamp(bignumber, tz=pytz.timezone('US/Eastern')).strftime('%m/%Y')

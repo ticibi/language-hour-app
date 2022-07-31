@@ -12,19 +12,21 @@ session_variables = config.SESSION_VARS
 initialize_session_state_variables(session_variables)
 st.session_state.req_count = 0
 
- 
-def load_subs():
-    st.session_state.current_user['Subs'] = {}
+
+def load_subs(user):
+    '''load user's sub data'''
+    user['Subs'] = {}
     worksheet = st.session_state.config['HourTracker']
-    name = st.session_state.current_user['Name']
+    name = user['Name']
     subs = st.session_state.members.query(f'Supervisor == "{name}"')['Name'].tolist()
     for sub in subs:
-        st.session_state.current_user['Subs'].update({sub: {'Scores': None, 'Entries': None}})
+        user['Subs'].update({sub: {'Scores': None, 'Entries': None}})
         scores = st.session_state.score_tracker.query(f'Name == "{sub}"').to_dict('records')[0]
-        st.session_state.current_user['Subs'][sub]['Scores'] = scores
-        st.session_state.current_user['Subs'][sub]['Entries'] = service.sheets.get_data(columns=None, tab_name=sub, worksheet_id=worksheet)
+        user['Subs'][sub]['Scores'] = scores
+        user['Subs'][sub]['Entries'] = service.sheets.get_data(columns=None, tab_name=sub, worksheet_id=worksheet)
 
 def load():
+    '''load user data'''
     name = st.session_state.current_user['Name']
     group = st.session_state.current_user['Group']
     st.session_state.current_group = group
@@ -61,7 +63,7 @@ def load():
         st.session_state.current_user['Files'] = None
     
     try:
-        load_subs()
+        load_subs(st.session_state.current_user)
     except Exception as e:
         print(e)
         st.session_state.current_user['Subs'] = {}

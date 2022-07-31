@@ -15,6 +15,7 @@ class Pages():
         self.user = st.session_state.current_user
 
     def welcome_message(self):
+        '''welcome message displayed at the top of the sidebar'''
         msg = ''
         if contains(st.session_state.current_user['Flags'], 'sg'): msg = '🦢 Silly Goose 🥜 Boi'
         elif contains(st.session_state.current_user['Flags'], 'mmm'): msg = '😋 Mmmmm~!!!'
@@ -23,6 +24,7 @@ class Pages():
         return msg
 
     def history_expander(self):
+        '''expander for table displaying entry history'''
         if self.user['Entries'].size < 1:
             return
         with st.expander('Show My Language Hour History'):
@@ -33,6 +35,7 @@ class Pages():
                 print('[error]', e)
 
     def mytroops_expander(self):
+        '''expander for table display sub data'''
         if not self.user['Subs']:
             return
         
@@ -91,6 +94,7 @@ class Pages():
                 st.dataframe(self.user['Subs'][sub]['Entries'])
 
     def entry_form(self):
+        '''hour entry form'''
         with st.form('Entry'):
             name = ''
             st.subheader('Language Hour Entry')
@@ -147,6 +151,7 @@ class Pages():
                     raise e
 
     def banner(self):
+        '''notification banner displayed at the top of the page'''
         today = datetime.today().timestamp()
         due_dates = check_due_dates(self.user['Scores'])
         one_month = 2628000.0
@@ -171,7 +176,7 @@ class Pages():
             st.error(f'GOOD-BYE FLPB :(. Your SLTE is due in {format_duedate(due_dates[1])} days')
         else:
             st.info(f'You are due for a SLTE in {format_duedate(due_dates[1])} days')
-        
+    
     def main_page(self):
         self.banner()
         self.entry_form()
