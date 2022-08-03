@@ -1,11 +1,9 @@
-from operator import contains
 import streamlit as st
 from utils import initialize_session_state_variables
-from pages import Pages
+from page import Pages
 from auth import Authenticator
 from gservices import GServices
 import config
-
 
 st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
 session_variables = config.SESSION_VARS
@@ -71,33 +69,16 @@ def load():
 
 if __name__ == '__main__':
     service = GServices(config.SERVICE_ACCOUNT, config.SCOPES)
+    st.session_state.service = service
     auth = Authenticator(service)
     pages = Pages(service)
 
     if st.session_state.authenticated:
-        with st.spinner('loading...'):
+        if not st.session_state.loaded:
             load()
-        try:
-            pages.sidebar()
-            pages.main_page()
-        except Exception as e:
-            st.error('could not load page')
-            print(e)
-
-        if contains(st.session_state.current_user['Flags'], 'admin'):
-            try:
-                pages.admin_sidebar()
-                pages.admin_page()
-            except Exception as e:
-                st.error('could not load page')
-                print(e)
-
-        if contains(st.session_state.current_user['Flags'], 'dev'):
-            try:
-                pages.dev_sidebar()
-                pages.dev_page()
-            except Exception as e:
-                st.error('could not load page')
-                print(e)
+            st.session_state.loaded = True
+        pages.welcome_message()
+        pages.entry_form()
+        pages.history_expander()
     else:
         auth.login()
