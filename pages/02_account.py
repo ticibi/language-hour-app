@@ -8,7 +8,7 @@ def main():
     not st.session_state.authenticated:
         st.info('You are not logged in')
         return
-    page = Pages(service=None)
+    page = Pages()
     page.welcome_message()
     page.account()
     page.scores()

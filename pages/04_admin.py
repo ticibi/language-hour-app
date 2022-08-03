@@ -13,7 +13,7 @@ def main():
         st.warning('You do not have admin permissions')
         return
     
-    page = Pages(service=None)
+    page = Pages()
     page.welcome_message()
     admin = AdminPage()
     admin.rundown()

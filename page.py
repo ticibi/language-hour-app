@@ -9,8 +9,8 @@ from utils import calculate_hours_done_this_month, to_date, calculate_hours_requ
 import config
 
 
-class Pages():
-    def __init__(self, service=None):
+class Pages:
+    def __init__(self):
         self.service = st.session_state.service
         self.user = st.session_state.current_user
 
@@ -265,7 +265,7 @@ class Pages():
             )
 
 
-class AdminPage():
+class AdminPage:
     def __init__(self):
         self.service = st.session_state.service
         self.user = st.session_state.current_user
@@ -355,7 +355,8 @@ class AdminPage():
                         self.service.log(f'Removed member {member}', worksheet_id=st.session_state.config['HourTracker'])
 
     def admin_actions(self):
-            with st.expander('Admin Actions'):
+        with st.sidebar:
+            with st.expander('Admin Actions', expanded=True):
                 if st.button('Create Folders', help="Create folders for all members if it doesn't exist"):
                     try:
                         count = self.service.create_folders_bulk()
@@ -383,22 +384,28 @@ class AdminPage():
             #    pass
 
     def links(self):
-        with st.expander('Tracker Links'):
-            st.write(f"[Master Tracker]({config.URL + config.MASTER_ID})")
-            st.write(f"[Score Tracker]({config.URL+st.session_state.config['ScoreTracker']})")
-            st.write(f"[Hour Tracker]({config.URL+st.session_state.config['HourTracker']})")
-            st.write(f"[Google Drive]({config.DRIVE+st.session_state.config['GoogleDrive']})")
+        with st.sidebar:
+            with st.expander('Tracker Links', expanded=True):
+                st.write(f"[Master Tracker]({config.URL + config.MASTER_ID})")
+                st.write(f"[Score Tracker]({config.URL+st.session_state.config['ScoreTracker']})")
+                st.write(f"[Hour Tracker]({config.URL+st.session_state.config['HourTracker']})")
+                st.write(f"[Google Drive]({config.DRIVE+st.session_state.config['GoogleDrive']})")
+
+
+class DevPage:
+    def __init__(self):
+        self.service = st.session_state.service
+        self.user = st.session_state.current_user 
 
     def dev_page(self):
         st.subheader('Dev Tools')
-        with st.expander('[Developer Debug]'):
+        with st.expander('Session State'):
             st.write(st.session_state)
 
     def dev_sidebar(self):
         def toggle_debug():
             st.session_state.debug = not st.session_state.debug
 
-        st.sidebar.subheader('[Developer Debug]')
         with st.sidebar:
             with st.expander('+', expanded=True):
                 st.write(f'Request Count: {st.session_state.req_count}')

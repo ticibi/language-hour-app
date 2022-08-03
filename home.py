@@ -71,12 +71,14 @@ if __name__ == '__main__':
     service = GServices(config.SERVICE_ACCOUNT, config.SCOPES)
     st.session_state.service = service
     auth = Authenticator(service)
-    pages = Pages(service)
+    pages = Pages()
 
     if st.session_state.authenticated:
+        # only load user data if it has not been loaded already
         if not st.session_state.loaded:
             load()
             st.session_state.loaded = True
+        # load page UI
         pages.welcome_message()
         pages.entry_form()
         pages.history_expander()
