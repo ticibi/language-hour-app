@@ -10,8 +10,8 @@ import config
 
 
 class Pages():
-    def __init__(self, service):
-        self.service = service
+    def __init__(self):
+        self.service = st.session_state.current_user
         self.user = st.session_state.current_user
 
     def welcome_message(self):

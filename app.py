@@ -71,13 +71,15 @@ def load_user_data():
 
 if __name__ == '__main__':
     service = GServices(config.SERVICE_ACCOUNT, config.SCOPES)
+    st.session_state.service = service
     auth = Authenticator(service)
-<<<<<<< Updated upstream:app.py
-    pages = Pages(service)
+    pages = Pages()
 
     if st.session_state.authenticated:
         with st.spinner('loading...'):
-            load()
+            if not st.session_state.loaded:
+                load_user_data()
+                st.session_state.loaded = True
         try:
             pages.sidebar()
             pages.main_page()
@@ -100,25 +102,5 @@ if __name__ == '__main__':
             except Exception as e:
                 st.error('could not load page')
                 print(e)
-=======
-    pages = Pages(icon="🌍🦖")
-
-    if st.session_state.authenticated:
-        # only load user data if it has not been loaded already
-        if not st.session_state.loaded:
-            try:
-                load_user_data()
-                service.log(f'logged in.', worksheet_id=st.session_state.config['HourTracker'])
-                st.session_state.loaded = True
-            except:
-                st.error('Could not load user data')
-        # load page UI
-        try:
-            pages.welcome_message()
-            pages.entry_form()
-            pages.history_expander()
-        except:
-            st.error('Could not load page')
->>>>>>> Stashed changes:home.py
     else:
         auth.login()

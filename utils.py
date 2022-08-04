@@ -113,6 +113,7 @@ def check_due_dates(scores: dict) -> tuple:
 
     def calculate_next_dlpt_date(last_date):
         '''returns next due date as timestamp'''
+        _next_dlpt = last_date
         if last_date == -1:
             return -1
         if int(listen) >= 3 and int(read) >= 3:
@@ -127,6 +128,7 @@ def check_due_dates(scores: dict) -> tuple:
     
     def calculate_next_slte_date(last_date):
         '''returns next due date as timestamp'''
+        _next_slte = last_date
         if last_date == -1:
             return -1
         if int(listen) >= 3 and int(read) >= 3:
