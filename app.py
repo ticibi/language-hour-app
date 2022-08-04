@@ -25,7 +25,7 @@ def load_subs(user):
         user['Subs'][sub]['Scores'] = scores
         user['Subs'][sub]['Entries'] = service.sheets.get_data(columns=None, tab_name=sub, worksheet_id=worksheet)
 
-def load():
+def load_user_data():
     '''load user data'''
     name = st.session_state.current_user['Name']
     group = st.session_state.current_user['Group']
@@ -72,6 +72,7 @@ def load():
 if __name__ == '__main__':
     service = GServices(config.SERVICE_ACCOUNT, config.SCOPES)
     auth = Authenticator(service)
+<<<<<<< Updated upstream:app.py
     pages = Pages(service)
 
     if st.session_state.authenticated:
@@ -99,5 +100,25 @@ if __name__ == '__main__':
             except Exception as e:
                 st.error('could not load page')
                 print(e)
+=======
+    pages = Pages(icon="🌍🦖")
+
+    if st.session_state.authenticated:
+        # only load user data if it has not been loaded already
+        if not st.session_state.loaded:
+            try:
+                load_user_data()
+                service.log(f'logged in.', worksheet_id=st.session_state.config['HourTracker'])
+                st.session_state.loaded = True
+            except:
+                st.error('Could not load user data')
+        # load page UI
+        try:
+            pages.welcome_message()
+            pages.entry_form()
+            pages.history_expander()
+        except:
+            st.error('Could not load page')
+>>>>>>> Stashed changes:home.py
     else:
         auth.login()

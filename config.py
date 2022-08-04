@@ -12,7 +12,11 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive.file",
     "https://www.googleapis.com/auth/drive.metadata",
 ]
+<<<<<<< Updated upstream
 SESSION_VARS = ['selected_month', 'current_user', 'authenticated', 'current_group', 'req_count', 'members', 'config', 'req_count', 'debug', 'score_tracker', 'show_total_month_hours', 'total_month_all',]
+=======
+SESSION_VARS = ['rundown_data', 'loaded', 'service', 'selected_month', 'current_user', 'authenticated', 'current_group', 'req_count', 'members', 'config', 'req_count', 'debug', 'score_tracker', 'show_total_month_hours', 'total_month_all',]
+>>>>>>> Stashed changes
 INFO = 'Info'
 MAIN = 'Main'
 MEMBERS = 'Members'
