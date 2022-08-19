@@ -2,16 +2,16 @@ from operator import contains
 import streamlit as st
 import pandas as pd
 import calendar
+import os
 from datetime import datetime
 from urllib.error import HTTPError
-import os
 from utils import calculate_hours_done_this_month, to_date, calculate_hours_required, to_excel, check_due_dates
 import config
 
 
 class Pages():
     def __init__(self):
-        self.service = st.session_state.current_user
+        self.service = st.session_state.service
         self.user = st.session_state.current_user
 
     def welcome_message(self):
@@ -29,7 +29,7 @@ class Pages():
             return
         with st.expander('Show My Language Hour History'):
             try:
-                self.service.update_entries(self.user['Name'], worksheet_id=st.session_state.config['HourTracker'])
+                #self.service.sheets.update_entries(self.user['Name'], worksheet_id=st.session_state.config['HourTracker'])
                 st.table(self.user['Entries'].iloc[::-1])
             except Exception as e:
                 print('[error]', e)
@@ -163,22 +163,21 @@ class Pages():
 
         # DLPT due date banner
         if today <= due_dates[0] - one_week * 2 and today >= due_dates[0] - one_month * 3:
-            st.warning(f'Your DLPT is due in {format_duedate(due_dates[0])} days')
+            st.warning(f'Your DLPT is due in {format_duedate(due_dates[0])} days. Consider scheduling your DLPT soon')
         elif today <= due_dates[0] and today > due_dates[0] - one_week * 2:
-            st.error(f'GOOD-BYE FLPB :( Your DLPT is due in {format_duedate(due_dates[0])} days')
+            st.error(f'GOODBYE FLPB :( Your DLPT is past due')
         else:
             st.info(f'Your DLPT is due in {format_duedate(due_dates[0])} days')
 
         # SLTE due date banner
         if today >= due_dates[1] - one_month and today <= due_dates[1] - one_month * 3:
-            st.warning(f'You are due for a SLTE in {format_duedate(due_dates[1])} days')
+            st.warning(f'You are due for a SLTE in {format_duedate(due_dates[1])} days. Consider scheduling your SLTE soon')
         elif today <= due_dates[1] and today > due_dates[1] - one_month:
-            st.error(f'GOOD-BYE FLPB :(. Your SLTE is due in {format_duedate(due_dates[1])} days')
+            st.error(f'Your SLTE is past due. Schedule your SLTE immediately')
         else:
             st.info(f'You are due for a SLTE in {format_duedate(due_dates[1])} days')
     
     def main_page(self):
-        self.banner()
         self.entry_form()
         self.history_expander()
         self.mytroops_expander()
@@ -231,8 +230,8 @@ class Pages():
                             st.sidebar.success('File uploaded')
                             self.service.log(f'Uploaded {file.type} file named "{file.name}"')
                         except Exception as e:
+                            print('[file error]', e)
                             st.sidebar.error('Could not upload file :(')
-                            raise e
                     os.remove(f"temp/{file.name}")
 
             def download():
@@ -248,7 +247,7 @@ class Pages():
                             if st.download_button(file['name'], data=self.service.drive.download_file(file['id']), file_name=file['name']):
                                 self.user['Files'] = self.service.drive.get_files(self.user['Name'])
                         except Exception as e:
-                            print(e)
+                            print('[file error]', e)
 
             with st.expander('My Files'):
                 upload()

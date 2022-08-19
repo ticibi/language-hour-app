@@ -34,38 +34,43 @@ def load_user_data():
     try:
         data = service.sheets.get_data(columns=None, tab_name=config.INFO, worksheet_id=config.MASTER_ID)
         st.session_state.config = data.query(f'Group == "{group}"').to_dict('records')[0]
-    except:
+    except Exception as e:
+        print('[load error]', e)
         st.session_state.config = None
 
     try:
         score_tracker = st.session_state.config['ScoreTracker']
         all_scores = service.sheets.get_data(columns=None, tab_name=config.MAIN, worksheet_id=score_tracker, range='A:J')
         st.session_state.score_tracker = all_scores
-    except:
+    except Exception as e:
+        print('[load error]', e)
         st.session_state.score_tracker = None
 
     try:
         user_scores = st.session_state.score_tracker.query(f'Name == "{name}"').to_dict('records')[0]
         user_scores.pop('Name')
         st.session_state.current_user['Scores'] = user_scores
-    except:
+    except Exception as e:
+        print('[load error]', e)
         st.session_state.current_user['Scores'] = None
 
     try:
         worksheet = st.session_state.config['HourTracker']
         st.session_state.current_user['Entries'] = service.sheets.get_data(columns=None, tab_name=name, worksheet_id=worksheet)
-    except:
+    except Exception as e:
+        print('[load error]', e)
         st.session_state.current_user['Entries'] = None
 
     try:
         st.session_state.current_user['Files'] = service.drive.get_files(name)
-    except:
+    except Exception as e:
+        print('[load error]', e)
         st.session_state.current_user['Files'] = None
     
     try:
         load_subs(st.session_state.current_user)
     except Exception as e:
-        print(e)
+        print('[load error]', e)
         st.session_state.current_user['Subs'] = {}
 
 
@@ -81,26 +86,24 @@ if __name__ == '__main__':
                 load_user_data()
                 st.session_state.loaded = True
         try:
+            pages.banner()
             pages.sidebar()
             pages.main_page()
         except Exception as e:
-            st.error('could not load page')
-            print(e)
+            st.error('could not load page. consult an LTM for assistance')
 
         if contains(st.session_state.current_user['Flags'], 'admin'):
             try:
                 pages.admin_sidebar()
                 pages.admin_page()
             except Exception as e:
-                st.error('could not load page')
-                print(e)
+                st.error('could not load page. consult an LTM for assistance')
 
         if contains(st.session_state.current_user['Flags'], 'dev'):
             try:
                 pages.dev_sidebar()
                 pages.dev_page()
             except Exception as e:
-                st.error('could not load page')
-                print(e)
+                st.error('could not load page. consult an LTM for assistance')
     else:
         auth.login()
