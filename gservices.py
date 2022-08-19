@@ -288,7 +288,10 @@ class GServices:
         body = {'values': values}
         try:
             r = self.sheets.spreadsheets().values().update(
-                spreadsheetId=hour_id, range=f'{name}!{column}{index}', valueInputOption='USER_ENTERED', body=body,
+                spreadsheetId=hour_id,
+                range=f'{name}!{column}{index}',
+                valueInputOption='USER_ENTERED',
+                body=body,
             ).execute()
         except HTTPError as e:
             print(e)
@@ -310,7 +313,8 @@ class GServices:
             print('[log error]', e)
 
     def update_entries(self, name, worksheet_id):
-        st.session_state.current_user['Entries'] = self.sheets.get_data(columns=None, tab_name=name, worksheet_id=worksheet_id)
+        data = self.sheets.get_data(columns=None, tab_name=name, worksheet_id=worksheet_id)
+        st.session_state.current_user['Entries'] = data
 
     def create_folders_bulk(self):
         count = 0
@@ -320,7 +324,10 @@ class GServices:
                 _ = self.drive.get_folder_id(name)
             except Exception as e:
                 print(e)
-                self.drive.create_folder(name, st.session_state.config['GoogleDrive'])
+                self.drive.create_folder(
+                    name, 
+                    st.session_state.config['GoogleDrive']
+                )
                 count += 1
         return count
 
@@ -329,7 +336,11 @@ class GServices:
         names = st.session_state.members['Name']
         for name in names:
             try:
-                self.sheets.get_data(columns=None, tab_name=name, worksheet_id=st.session_state.config['HourTracker'], range='A:D')
+                self.sheets.get_data(
+                    columns=None,
+                    tab_name=name,
+                    worksheet_id=st.session_state.config['HourTracker'], range='A:D'
+                )
             except Exception as e:
                 print(e)
                 self.sheets.add_tab(name)

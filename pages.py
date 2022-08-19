@@ -237,10 +237,10 @@ class Pages():
             def download():
                  if self.user['Entries'].size > 0:
                     st.download_button('📥 Download Entry History (excel)', data=to_excel(self.user['Entries']), file_name='EntryHistory.xlsx')
-                    st.write('Stored Files:')
+                    st.write('My Stored Files:')
                     files = self.user['Files']
                     if not files:
-                        st.write('No files')
+                        st.write('No files stored')
                         return
                     for file in files:
                         try:
