@@ -34,7 +34,7 @@ if __name__ == '__main__':
                 except:
                     st.error('could not load data.')
         try:
-            pages.banner()
+            #pages.banner()
             pages.sidebar()
             pages.main_page()
         except Exception as e:

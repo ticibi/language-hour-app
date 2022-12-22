@@ -9,6 +9,14 @@ from utils import calculate_hours_done_this_month, to_date, calculate_hours_requ
 import config
 
 
+class EntryForm:
+    def __init__(self):
+        pass
+
+    def main(self):
+        pass
+
+
 class Pages():
     def __init__(self):
         self.service = st.session_state.service
@@ -107,7 +115,7 @@ class Pages():
                 options = list(self.user['Subs'].keys())
                 options.append(self.user['Name'])
                 name = cols[0].selectbox("Name", options=options, index=len(options)-1)
-            date = cols[1].date_input("Date")
+            date = cols[1].date_input("Date (YYYY/MM/DD)")
             cols = st.columns((2, 1))
             mods = cols[0].multiselect("Activity", options=config.ACTIVITIES)
             hours_done = calculate_hours_done_this_month(self.service, name=self.user['Name'])
@@ -427,4 +435,3 @@ class Pages():
             with st.expander('+', expanded=True):
                 st.write(f'Request Count: {st.session_state.req_count}')
                 st.checkbox('Show Debug', value=st.session_state.debug, on_change=toggle_debug())
-
