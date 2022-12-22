@@ -20,6 +20,8 @@ class GServices:
         self.mail = self.Mail(self.credentials)
         self.sheets = self.Sheets(self.credentials)
         self.drive = self.Drive(self.credentials)
+        self.bulk_utils = self.BulkUtils()
+        self.member = self.Member()
 
 
     class Mail:
@@ -394,11 +396,13 @@ class GServices:
             pass
 
         def add(self, member_data, hour_tracker_id, score_tracker_id):
+            '''adds member to master, drive, hour tracker, and score tracker'''
             pass
 
         def remove(self, member_data, hour_tracker_id, score_tracker_id):
+            '''removes member from score tracker, hour tracker, drive, and master'''
             pass
-
+        
         def update(self, field, member_name, index, values, hour_tracker_id):
             pass
 
