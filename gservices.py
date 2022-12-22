@@ -11,6 +11,7 @@ import config
 
 
 class GServices:
+    '''google services connection to gmail, gsheets, and google drive'''
     def __init__(self, account_info, scopes):
         self.credentials = service_account.Credentials.from_service_account_info(
             info=account_info,
@@ -20,7 +21,9 @@ class GServices:
         self.sheets = self.Sheets(self.credentials)
         self.drive = self.Drive(self.credentials)
 
+
     class Mail:
+        '''functions to interact with gmail'''
         def __init__(self, credentials):
             self.mail = build(
                 serviceName='gmail',
@@ -29,7 +32,9 @@ class GServices:
                 cache_discovery=False,
             )
 
+
     class Sheets:
+        '''functions to interact with the google sheet'''
         def __init__(self, credentials):
             self.sheets = build(
                 serviceName='sheets',
@@ -118,7 +123,9 @@ class GServices:
                 body=body,
             ).execute()
 
+
     class Drive:
+        '''functions to interact with the google drive'''
         def __init__(self, credentials):
             self.drive = build(
                 serviceName='drive',
@@ -186,6 +193,7 @@ class GServices:
                 }
             media = MediaFileUpload(f"temp/{file.name}", mimetype="*/*")
             self.drive.files().create(body=file_metadata, media_body=media, fields="id").execute()
+
 
     def add_member(self, data, hour_id, score_id):
         try:
@@ -299,6 +307,7 @@ class GServices:
             return e
 
     def log(self, event, tab_name='Log', worksheet_id='', range='A:D'):
+        '''creates an entry in the event log ("Log" tab of the hour tracker)'''
         try:
             self.sheets.write_data(
                 [[str(date.today()),
@@ -310,18 +319,19 @@ class GServices:
                 range=range,
             )
         except Exception as e:
-            print('[log error]', e)
+            print('could not create log', e)
 
     def update_entries(self, name, worksheet_id):
         data = self.sheets.get_data(columns=None, tab_name=name, worksheet_id=worksheet_id)
         st.session_state.current_user['Entries'] = data
 
     def create_folders_bulk(self):
+        '''tries to create a folder for each member in the group if a folder does not already exist'''
         count = 0
         names = st.session_state.members['Name']
         for name in names:
             try:
-                _ = self.drive.get_folder_id(name)
+                folder = self.drive.get_folder_id(name)
             except Exception as e:
                 print(e)
                 self.drive.create_folder(
@@ -332,6 +342,7 @@ class GServices:
         return count
 
     def create_tabs_bulk(self):
+        '''tries to create a tab for each member in the group if a tab does not already exist'''
         count = 0
         names = st.session_state.members['Name']
         for name in names:
@@ -360,3 +371,34 @@ class GServices:
                 ).execute()
                 count += 1
         return count
+
+
+    class BulkUtils:
+        '''functions to update data in bulk'''
+        def __init__(self):
+            pass
+
+        def create_folders(self):
+            pass
+
+        def create_tabs(self):
+            pass
+
+        def log(self, event_description, tab_name='Log', worksheet_id='', range='A:D'):
+            pass
+
+
+    class Member:
+        '''The Member class contains function for adding, removing, and updating member info'''
+        def __init__(self):
+            pass
+
+        def add(self, member_data, hour_tracker_id, score_tracker_id):
+            pass
+
+        def remove(self, member_data, hour_tracker_id, score_tracker_id):
+            pass
+
+        def update(self, field, member_name, index, values, hour_tracker_id):
+            pass
+

@@ -1,5 +1,6 @@
 import streamlit as st
 
+
 URL = 'https://docs.google.com/spreadsheets/d/'
 DRIVE = 'https://drive.google.com/drive/u/6/folders/'
 SERVICE_ACCOUNT = st.secrets['SERVICE_ACCOUNT']
@@ -12,7 +13,21 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive.file",
     "https://www.googleapis.com/auth/drive.metadata",
 ]
-SESSION_VARS = ['service', 'loaded', 'selected_month', 'current_user', 'authenticated', 'current_group', 'req_count', 'members', 'config', 'req_count', 'debug', 'score_tracker', 'show_total_month_hours', 'total_month_all',]
+SESSION_VARS = [
+    'service', # google services variable
+    'loaded', 
+    'selected_month', # month selection for rundown
+    'current_user', # user accessing the site
+    'authenticated', # has user successfully logged into the site
+    'current_group', # group string
+    'req_count', # number of requests to google services
+    'members', # list of all members of the group
+    'config', # user config
+    'debug', # debug mode toggle
+    'score_tracker',
+    'show_total_month_hours',
+    'total_month_all', # all members monthly hours, displayed in the rundown
+]
 INFO = 'Info'
 MAIN = 'Main'
 MEMBERS = 'Members'
