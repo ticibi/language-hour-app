@@ -4,6 +4,7 @@ from utils import initialize_session_state_variables
 from pages import Pages
 from auth import Authenticator
 from gservices import GServices
+from loader import Loader
 import config
 
 
@@ -12,85 +13,32 @@ session_variables = config.SESSION_VARS
 initialize_session_state_variables(session_variables)
 st.session_state.req_count = 0
 
-
-def load_subs(user):
-    '''load user's sub data'''
-    user['Subs'] = {}
-    worksheet = st.session_state.config['HourTracker']
-    name = user['Name']
-    subs = st.session_state.members.query(f'Supervisor == "{name}"')['Name'].tolist()
-    for sub in subs:
-        user['Subs'].update({sub: {'Scores': None, 'Entries': None}})
-        scores = st.session_state.score_tracker.query(f'Name == "{sub}"').to_dict('records')[0]
-        user['Subs'][sub]['Scores'] = scores
-        user['Subs'][sub]['Entries'] = service.sheets.get_data(columns=None, tab_name=sub, worksheet_id=worksheet)
-
-def load_user_data():
-    '''load user data'''
-    name = st.session_state.current_user['Name']
-    group = st.session_state.current_user['Group']
-    st.session_state.current_group = group
-
-    try:
-        data = service.sheets.get_data(columns=None, tab_name=config.INFO, worksheet_id=config.MASTER_ID)
-        st.session_state.config = data.query(f'Group == "{group}"').to_dict('records')[0]
-    except Exception as e:
-        print('[load error]', e)
-        st.session_state.config = None
-
-    try:
-        score_tracker = st.session_state.config['ScoreTracker']
-        all_scores = service.sheets.get_data(columns=None, tab_name=config.MAIN, worksheet_id=score_tracker, range='A:J')
-        st.session_state.score_tracker = all_scores
-    except Exception as e:
-        print('[load error]', e)
-        st.session_state.score_tracker = None
-
-    try:
-        user_scores = st.session_state.score_tracker.query(f'Name == "{name}"').to_dict('records')[0]
-        user_scores.pop('Name')
-        st.session_state.current_user['Scores'] = user_scores
-    except Exception as e:
-        print('[load error]', e)
-        st.session_state.current_user['Scores'] = None
-
-    try:
-        worksheet = st.session_state.config['HourTracker']
-        st.session_state.current_user['Entries'] = service.sheets.get_data(columns=None, tab_name=name, worksheet_id=worksheet)
-    except Exception as e:
-        print('[load error]', e)
-        st.session_state.current_user['Entries'] = None
-
-    try:
-        st.session_state.current_user['Files'] = service.drive.get_files(name)
-    except Exception as e:
-        print('[load error]', e)
-        st.session_state.current_user['Files'] = None
-    
-    try:
-        load_subs(st.session_state.current_user)
-    except Exception as e:
-        print('[load error]', e)
-        st.session_state.current_user['Subs'] = {}
-
-
 if __name__ == '__main__':
     service = GServices(config.SERVICE_ACCOUNT, config.SCOPES)
     st.session_state.service = service
     auth = Authenticator(service)
     pages = Pages()
+    loader = None
 
     if st.session_state.authenticated:
-        with st.spinner('loading...'):
+        with st.spinner('loading application...'):
             if not st.session_state.loaded:
-                load_user_data()
-                st.session_state.loaded = True
+                loader = Loader(
+                    st.session_state.service,
+                    st.session_state.current_user,
+                    st.session_state.current_user['Group']
+                )
+                try:
+                    loader.load_data()
+                    st.session_state.loaded = True
+                except:
+                    st.error('could not load data.')
         try:
             pages.banner()
             pages.sidebar()
             pages.main_page()
         except Exception as e:
-            st.error('could not load page. consult an LTM for assistance')
+            st.error('Could not load page portion.')
 
         if contains(st.session_state.current_user['Flags'], 'admin'):
             try:
