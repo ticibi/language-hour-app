@@ -31,7 +31,7 @@ SESSION_VARS = [
 INFO = 'Info'
 MAIN = 'Main'
 MEMBERS = 'Members'
-DICODES = ['AU', 'AP', 'AE', 'DG', 'AD', 'AV', 'PV', 'PG', 'PF']
+DICODES = ['AU', 'AP', 'AE', 'DG', 'AD', 'AV', 'PV', 'PG', 'PF',]
 CLANG_L = 'CLang L'
 CLANG_R = 'CLang R'
 DLTP_DATE = 'DLPT Date'
@@ -41,4 +41,14 @@ SLTE_RANGE = {
     '2': 18,
     '1': 12,
 }
-ACTIVITIES = ['Listening', 'Reading', 'Speaking', 'Transcription', 'Vocab', 'SLTE', 'DLPT', 'ILTP upload', '623A upload']
+ACTIVITIES = [
+    'Listening',
+    'Reading',
+    'Speaking',
+    'Transcription',
+    'Vocab',
+    'SLTE',
+    'DLPT',
+    'ILTP upload',
+    '623A upload',
+]

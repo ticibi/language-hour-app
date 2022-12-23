@@ -18,7 +18,6 @@ if __name__ == '__main__':
     st.session_state.service = service
     auth = Authenticator(service)
     pages = Pages()
-    loader = None
 
     if st.session_state.authenticated:
         with st.spinner('loading application...'):

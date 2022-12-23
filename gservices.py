@@ -21,7 +21,7 @@ class GServices:
         self.sheets = self.Sheets(self.credentials)
         self.drive = self.Drive(self.credentials)
         self.bulk_utils = self.BulkUtils()
-        self.member = self.Member()
+        self.members = self.Members()
 
 
     class Mail:
@@ -45,7 +45,7 @@ class GServices:
                 cache_discovery=False,
             )
 
-        def add_tab(self, tab_name, worksheet_id):
+        def add_tab(self, tab_name, hour_tracker):
             body = {
                 'requests': [
                     {
@@ -58,7 +58,7 @@ class GServices:
                 ]
             }
             try:
-                r = self.batch_update(body, worksheet_id)
+                r = self.batch_update(body, hour_tracker)
                 return True
             except HTTPError as e:
                 print(e)
@@ -101,7 +101,7 @@ class GServices:
                 body=dict(values=data),
                 valueInputOption='USER_ENTERED',
             ).execute()
-
+        
         def batch_update(self, body, worksheet_id):
             r = None
             try:
@@ -197,15 +197,9 @@ class GServices:
             self.drive.files().create(body=file_metadata, media_body=media, fields="id").execute()
 
 
-    def add_member(self, data, hour_id, score_id):
+    def create_tab(self, user_name, hour_tracker):
         try:
-            self.drive.create_folder(data['Name'], config.FOLDER_ID)
-            st.success('created folder')
-        except Exception as e:
-            print(e)
-            st.warning('failed to create folder')
-        try:
-            self.sheets.add_tab(data['Name'])
+            self.sheets.add_tab(user_name, hour_tracker)
             cell_range = 'A1'
             values = (
                 ('Date', 'Hours', 'Modality', 'Description', 'Vocab'),
@@ -215,35 +209,53 @@ class GServices:
                 'values': values,
             }
             self.sheets.spreadsheets().values().update(
-                spreadsheetId=hour_id,
+                spreadsheetId=hour_tracker,
                 valueInputOption='USER_ENTERED',
-                range=f'{data["Name"]}!{cell_range}',
+                range=f'{user_name}!{cell_range}',
                 body=body,
             ).execute()
             st.success('created tab')
         except Exception as e:
             print(e)
             st.warning('failed to create tab')
-        try:
-            data =[[data['Name'], data['Username'], config.PASSWORD, data['Flags']]]
-            self.sheets.write_data(data, worksheet_id=hour_id, tab_name='Members', range='A:D')
-            st.success('added member info')
-        except Exception as e:
-            print(e)
-            st.warning('failed to add member info')
+
+    def add_score(self, scores):
         try:
             data = []
             data.append(list(data.values())[:-1])
             data[0].pop(1)
-            self.sheets.write_data(data, worksheet_id=score_id, tab_name='Main', range='A:K')
+            self.sheets.write_data(data, worksheet_id=scores, tab_name='Main', range='A:K')
             st.success('added member scores')
         except Exception as e:
             print(e)
             st.warning('failed to add member scores')
 
-    def remove_member(self, data, hour_id, score_id):
-        worksheet_id = hour_id
-        sheet_id = self.get_sheet_id(data['Name'])
+    def create_folder(self, user_name):
+        try:
+            self.drive.create_folder(user_name, config.FOLDER_ID)
+            st.success('Created folder.')
+        except Exception as e:
+            print(e)
+            st.warning('Failed to create folder.')
+
+    def add_info(self, hour_tracker):
+        try:
+            data =[[data['Name'], data['Username'], config.PASSWORD, data['Flags']]]
+            self.sheets.write_data(data, worksheet_id=hour_tracker, tab_name='Members', range='A:D')
+            st.success('added member info')
+        except Exception as e:
+            print(e)
+            st.warning('failed to add member info')
+
+    def add_member(self, user, hour_tracker, score_tracker):
+        self.create_folder(user)
+        self.create_tab(user, hour_tracker)
+        self.add_score(score_tracker)
+        self.add_info(hour_tracker)
+        
+    def delete_sheet(self, user, hour_tracker):
+        worksheet_id = hour_tracker
+        sheet_id = self.get_sheet_id(user['Name'])
         body = {
             "requests": [
                 {
@@ -259,14 +271,16 @@ class GServices:
             ).execute()
         except HTTPError as e:
             print(__name__, e)
-        user_data = self.sheets.get_data(columns=None, worksheet_id=score_id, tab_name='Main')
-        index = user_data.index[user_data['Name'] == data['Name']].tolist()[0]
+
+    def delete_info(self, user, hour_tracker, score_tracker):
+        user_data = self.sheets.get_data(columns=None, worksheet_id=score_tracker, tab_name='Main')
+        index = user_data.index[user_data['Name'] == user['Name']].tolist()[0]
         body = {
             "requests": [
                 {
                     "deleteDimension": {
                         "range": {
-                            "sheetId": worksheet_id,
+                            "sheetId": hour_tracker,
                             "dimension": "ROWS",
                             "startIndex": index,
                             "endIndex": index + 1,
@@ -277,10 +291,14 @@ class GServices:
         }
         try:
             r = self.sheets.spreadsheets().batchUpdate(
-                spreadsheetId=worksheet_id, body=body
+                spreadsheetId=hour_tracker, body=body
             ).execute()
         except HTTPError as e:
             print(e)
+
+    def remove_member(self, user, hour_tracker, score_tracker):
+        self.delete_sheet(user, hour_tracker)
+        self.delete_info(user, hour_tracker, score_tracker)
 
     def update_member(self, field, name, index, values, hour_id):
         column = ''
@@ -332,15 +350,8 @@ class GServices:
         count = 0
         names = st.session_state.members['Name']
         for name in names:
-            try:
-                folder = self.drive.get_folder_id(name)
-            except Exception as e:
-                print(e)
-                self.drive.create_folder(
-                    name, 
-                    st.session_state.config['GoogleDrive']
-                )
-                count += 1
+            self.create_folder(name)
+            count += 1
         return count
 
     def create_tabs_bulk(self):
@@ -348,30 +359,8 @@ class GServices:
         count = 0
         names = st.session_state.members['Name']
         for name in names:
-            try:
-                self.sheets.get_data(
-                    columns=None,
-                    tab_name=name,
-                    worksheet_id=st.session_state.config['HourTracker'], range='A:D'
-                )
-            except Exception as e:
-                print(e)
-                self.sheets.add_tab(name)
-                cell_range = 'A1'
-                values = (
-                    ('Date', 'Hours', 'Modality', 'Description', 'Vocab'),
-                )
-                body = {
-                    'majorDimension': 'ROWS',
-                    'values': values,
-                }
-                self.sheets.spreadsheets().values().update(
-                    spreadsheetId=st.session_state.config['HourTracker'],
-                    valueInputOption='USER_ENTERED',
-                    range=f'{name}!{cell_range}',
-                    body=body,
-                ).execute()
-                count += 1
+            self.create_tab(name, st.session_state.config['HourTracker'])
+            count += 1
         return count
 
 
@@ -390,7 +379,7 @@ class GServices:
             pass
 
 
-    class Member:
+    class Members:
         '''The Member class contains function for adding, removing, and updating member info'''
         def __init__(self):
             pass

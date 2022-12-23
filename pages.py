@@ -184,7 +184,7 @@ class Pages():
             st.error(f'Your SLTE is past due. Schedule your SLTE immediately')
         else:
             st.info(f'You are due for a SLTE in {format_duedate(due_dates[1])} days')
-    
+
     def main_page(self):
         self.entry_form()
         self.history_expander()
@@ -199,10 +199,9 @@ class Pages():
                 cols = st.columns((1, 1))
                 listening = cols[0].text_input('Listening', value=self.user['Scores'][config.CLANG_L])
                 reading = cols[1].text_input('Reading', value=self.user['Scores'][config.CLANG_R])
-                save = st.button('Update my scores')
+                save = st.button('Submit')
                 if save:
-                    self.user['Scores'][config.CLANG_L] = listening
-                    self.user['Scores'][config.CLANG_R] = reading
+                    pass
 
             def login_info():
                 st.text_input('Name', value=self.user['Name'], disabled=True)
@@ -212,8 +211,8 @@ class Pages():
                 if save:
                     self.user['Username'] = username
 
-            with st.expander('[this doesnt work] My Account'):
-                login_info()
+            with st.expander('Update Scores'):
+                #login_info()
                 scores()
 
         def subs():
@@ -239,7 +238,7 @@ class Pages():
                             self.service.log(f'Uploaded {file.type} file named "{file.name}"')
                         except Exception as e:
                             print('[file error]', e)
-                            st.sidebar.error('Could not upload file :(')
+                            st.sidebar.error('Could not upload file.')
                     os.remove(f"temp/{file.name}")
 
             def download():
@@ -255,7 +254,7 @@ class Pages():
                             if st.download_button(file['name'], data=self.service.drive.download_file(file['id']), file_name=file['name']):
                                 self.user['Files'] = self.service.drive.get_files(self.user['Name'])
                         except Exception as e:
-                            print('[file error]', e)
+                            print('Could not download file.', e)
 
             with st.expander('My Files'):
                 upload()
@@ -292,8 +291,8 @@ class Pages():
             subs()
             if 'admin' in st.session_state.current_user['Flags']: account()
             files()
-            #if 'admin' in st.session_state.current_user['Flags']: settings() 
-            #if 'admin' in st.session_state.current_user['Flags']: program_info()
+            # if 'admin' in st.session_state.current_user['Flags']: settings() 
+            # if 'admin' in st.session_state.current_user['Flags']: program_info()
 
     def admin_page(self):
         if st.session_state.show_total_month_hours:
@@ -357,7 +356,11 @@ class Pages():
                             'Flags': ' '.join(flags) if flags else '',
                         }
                         try:
-                            self.service.add_member(user_data)
+                            self.service.add_member(
+                                user_data,
+                                st.session_state.config['HourTracker'],
+                                st.session_state.config['ScoreTracker'],
+                            )
                             self.service.log(f'Added member {username}')
                         except Exception as e:
                             print(e)
@@ -369,7 +372,11 @@ class Pages():
                 options.append('')
                 member = st.selectbox('Select a Member', options=options, index=len(options)-1)
                 if member:
-                    data = self.service.sheets.get_data(columns=None, tab_name=member, worksheet_id=st.session_state.config['HourTracker'])
+                    data = self.service.sheets.get_data(
+                        columns=None,
+                        tab_name=member,
+                        worksheet_id=st.session_state.config['HourTracker']
+                    )
                     button = st.download_button(f'Download Entry History', data=to_excel(data))
                     file_button = st.button('Download Files')
                     if file_button:
