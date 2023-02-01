@@ -18,7 +18,7 @@ class Authenticator:
             user_data = data.query(f'Username == "{username}"').to_dict('records')[0]
             st.session_state.members = data.query(f'Group == "{user_data["Group"]}"').drop(columns=['Password'], axis=1)
         except Exception as e:
-            st.error('Could not retrieve user data')
+            st.error('Could not get user data.')
             print(e)
             return
 
@@ -29,7 +29,7 @@ class Authenticator:
             st.session_state.current_user = user_data
             st.session_state.authenticated = True
         else:
-            st.error('Incorrect username or password')
+            st.error('Incorrect username or password.')
             st.session_state.authenticated = False
 
     def login(self, header='Login'):

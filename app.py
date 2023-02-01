@@ -8,7 +8,7 @@ from loader import Loader
 import config
 
 
-st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="centered")
+st.set_page_config(page_title="Language Hour Entry", page_icon="🌐", layout="wide")
 session_variables = config.SESSION_VARS
 initialize_session_state_variables(session_variables)
 st.session_state.req_count = 0
@@ -31,26 +31,26 @@ if __name__ == '__main__':
                     loader.load_data()
                     st.session_state.loaded = True
                 except:
-                    st.error('could not load data.')
+                    st.error('error')
         try:
             #pages.banner()
             pages.sidebar()
             pages.main_page()
         except Exception as e:
-            st.error('Could not load page portion.')
+            pass
 
         if contains(st.session_state.current_user['Flags'], 'admin'):
             try:
                 pages.admin_sidebar()
                 pages.admin_page()
             except Exception as e:
-                st.error('could not load page. consult an LTM for assistance')
+                st.error('error')
 
         if contains(st.session_state.current_user['Flags'], 'dev'):
             try:
                 pages.dev_sidebar()
                 pages.dev_page()
             except Exception as e:
-                st.error('could not load page. consult an LTM for assistance')
+                st.error('error')
     else:
         auth.login()

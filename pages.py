@@ -7,19 +7,24 @@ from datetime import datetime
 from urllib.error import HTTPError
 from utils import calculate_hours_done_this_month, to_date, calculate_hours_required, to_excel, check_due_dates
 import config
+from gservices import GServices
 
 
-class EntryForm:
-    def __init__(self):
-        pass
+class Form:
+    def __init__(self, label):
+        with st.form(label):
+            st.form_submit_button(f'{label}-submit')
 
-    def main(self):
-        pass
+
+class Sidebar:
+    def __init__(self, label):
+        with st.expander(label):
+            pass
 
 
 class Pages():
     def __init__(self):
-        self.service = st.session_state.service
+        self.service: GServices = st.session_state.service
         self.user = st.session_state.current_user
 
     def welcome_message(self):
@@ -213,19 +218,23 @@ class Pages():
 
             with st.expander('Update Scores'):
                 #login_info()
-                scores()
+                #scores()
+                pass
 
         def subs():
             with st.expander('My Troops', expanded=True):
                 if self.user['Subs'] is None:
                     return
                 for sub in self.user['Subs'].keys():
-                    cols = st.columns((5, 2))
-                    cols[0].markdown(sub)
-                    hrs_done = calculate_hours_done_this_month(self.service, name=sub)
-                    hrs_req = calculate_hours_required(self.user['Subs'][sub]['Scores'])
-                    color = 'green' if hrs_done >= hrs_req else 'red'
-                    cols[1].markdown(f'<p style="color:{color}">{hrs_done}/{hrs_req} hrs</p>', unsafe_allow_html=True)
+                    try:
+                        cols = st.columns((5, 2))
+                        cols[0].markdown(sub)
+                        hrs_done = calculate_hours_done_this_month(self.service, name=sub)
+                        hrs_req = calculate_hours_required(self.user['Subs'][sub]['Scores'])
+                        color = 'green' if hrs_done >= hrs_req else 'red'
+                        cols[1].markdown(f'<p style="color:{color}">{hrs_done}/{hrs_req} hrs</p>', unsafe_allow_html=True)
+                    except:
+                        pass
 
         def files():
             def upload():
@@ -422,7 +431,7 @@ class Pages():
             admin_actions()
             rundown()
 
-            with st.expander('Tracker Links'):
+            with st.expander('Tracker Links', expanded=True):
                 st.write(f"[Master Tracker]({config.URL + config.MASTER_ID})")
                 st.write(f"[Score Tracker]({config.URL+st.session_state.config['ScoreTracker']})")
                 st.write(f"[Hour Tracker]({config.URL+st.session_state.config['HourTracker']})")
@@ -439,6 +448,7 @@ class Pages():
 
         st.sidebar.subheader('[Developer Debug]')
         with st.sidebar:
-            with st.expander('+', expanded=True):
-                st.write(f'Request Count: {st.session_state.req_count}')
-                st.checkbox('Show Debug', value=st.session_state.debug, on_change=toggle_debug())
+           #with st.expander('+'):
+           #    st.write(f'Request Count: {st.session_state.req_count}')
+           #    st.checkbox('Show Debug', value=st.session_state.debug, on_change=toggle_debug())
+            pass

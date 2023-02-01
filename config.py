@@ -46,6 +46,7 @@ ACTIVITIES = [
     'Reading',
     'Speaking',
     'Transcription',
+    'Mentoring',
     'Vocab',
     'SLTE',
     'DLPT',

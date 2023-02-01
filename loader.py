@@ -1,17 +1,18 @@
 import streamlit as st
 import config
+from gservices import GServices
 
 
 class Loader:
     def __init__(self, service, user, group):
-        self.service = service
+        self.service: GServices = service
         self.user = user
         self.group = group
 
     def load_data(self):
         self.load_config()
         self.load_trackers()
-        self.load_scores()
+        self.load_scores(self.user['Name'])
         self.load_files()
         self.load_entries()
         self.load_subordinates()
@@ -92,10 +93,10 @@ class Loader:
             print('could not load files:', e)
             st.session_state.current_user['Files'] = None
 
-    def load_scores(self):
+    def load_scores(self, name):
         try:
             user_scores = st.session_state.score_tracker.query(
-                f'Name == "{self.user["Name"]}"'
+                f'Name == "{name}"'
             ).to_dict('records')[0]
             user_scores.pop('Name')
             st.session_state.current_user['Scores'] = user_scores
