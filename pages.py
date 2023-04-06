@@ -5,7 +5,7 @@ import calendar
 import os
 from datetime import datetime
 from urllib.error import HTTPError
-from utils import calculate_hours_done_this_month, to_date, calculate_hours_required, to_excel, check_due_dates
+from utils import create_pdf, calculate_hours_done_this_month, to_date, calculate_hours_required, to_excel, check_due_dates
 import config
 from gservices import GServices
 
@@ -38,6 +38,25 @@ class Pages():
 
     def history_expander(self):
         '''expander for table displaying entry history'''
+        if st.button('Download PDF'):
+            user = st.session_state.current_user
+            _data = self.service.sheets.get_data(
+                columns=['Date', 'Hours'],
+                worksheet_id=st.session_state.config['HourTracker'],
+                tab_name=user['Name']
+            )
+            data = {
+                'Language': 'Arabic',
+                'Member Name': user['Name'],
+                'Hours Studied': calculate_hours_done_this_month(_data),
+                'Date': 'MAR-2023',
+                'Listening': user['Scores']['CLang L'],
+                'Reading': user['Scores']['CLang R'],
+                'Maintenance Record': 'TEST STRING HERE',
+            }
+            buffer = create_pdf(data)
+            st.download_button('Download', buffer.getvalue(), file_name='output.pdf', mime='application/pdf')
+
         if self.user['Entries'].size < 1:
             return
         with st.expander('Show My Language Hour History'):
@@ -108,6 +127,7 @@ class Pages():
 
     def entry_form(self):
         '''hour entry form'''
+        data = 0
         with st.form('Entry'):
             name = ''
             st.subheader('Language Hour Entry')
@@ -123,7 +143,12 @@ class Pages():
             date = cols[1].date_input("Date (YYYY/MM/DD)")
             cols = st.columns((2, 1))
             mods = cols[0].multiselect("Activity", options=config.ACTIVITIES)
-            hours_done = calculate_hours_done_this_month(self.service, name=self.user['Name'])
+            _data = self.service.sheets.get_data(
+                columns=['Date', 'Hours'],
+                worksheet_id=st.session_state.config['HourTracker'],
+                tab_name=self.user['Name']
+            )
+            hours_done = calculate_hours_done_this_month(_data)
             hours_req = calculate_hours_required(self.user['Scores'])
             hours = cols[1].text_input(f"Hours - {hours_done}/{hours_req} hrs completed")
             cols = st.columns((2, 1))
@@ -229,7 +254,12 @@ class Pages():
                     try:
                         cols = st.columns((5, 2))
                         cols[0].markdown(sub)
-                        hrs_done = calculate_hours_done_this_month(self.service, name=sub)
+                        _data = self.service.sheets.get_data(
+                            columns=['Date', 'Hours'],
+                            worksheet_id=st.session_state.config['HourTracker'],
+                            tab_name=sub,
+                        )
+                        hrs_done = calculate_hours_done_this_month(_data)
                         hrs_req = calculate_hours_required(self.user['Subs'][sub]['Scores'])
                         color = 'green' if hrs_done >= hrs_req else 'red'
                         cols[1].markdown(f'<p style="color:{color}">{hrs_done}/{hrs_req} hrs</p>', unsafe_allow_html=True)
@@ -265,7 +295,7 @@ class Pages():
                         except Exception as e:
                             print('Could not download file.', e)
 
-            with st.expander('My Files'):
+            with st.expander('My Files', expanded=True):
                 upload()
                 download()
      
@@ -317,7 +347,12 @@ class Pages():
                             hrs_req = 0
                         try:
                             month = list(calendar.month_name).index(st.session_state.selected_month)
-                            hrs_done = calculate_hours_done_this_month(self.service, name=name, month=month)
+                            _data = self.service.sheets.get_data(
+                                columns=['Date', 'Hours'],
+                                worksheet_id=st.session_state.config['HourTracker'],
+                                tab_name=name,
+                            )
+                            hrs_done = calculate_hours_done_this_month(_data, month=month)
                         except Exception as e:
                             print(e)
                             hrs_done = 0

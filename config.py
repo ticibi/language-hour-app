@@ -1,6 +1,14 @@
 import streamlit as st
 
 
+
+DB_USERNAME = st.secrets['DB_USERNAME']
+DB_PASSWORD = st.secrets['DB_PASSWORD']
+HOST = st.secrets['HOST']
+PORT = st.secrets['PORT']
+DB_NAME = st.secrets['DB_NAME']
+
+
 URL = 'https://docs.google.com/spreadsheets/d/'
 DRIVE = 'https://drive.google.com/drive/u/6/folders/'
 SERVICE_ACCOUNT = st.secrets['SERVICE_ACCOUNT']

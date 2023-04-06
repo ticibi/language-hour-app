@@ -5,7 +5,9 @@ from io import BytesIO
 from time import time
 from datetime import datetime
 import config
-
+from PyPDF2 import PdfWriter, PdfReader
+from PyPDF2.generic import BooleanObject, NameObject, IndirectObject
+import PyPDF2.generic as pdfgen
 
 def initialize_session_state_variables(vars):
     '''helper function to initialize streamlit session state variables'''
@@ -31,14 +33,10 @@ def timeit(func):
         return output
     return wrapper
 
-def calculate_hours_done_this_month(service, name, month=datetime.now().date().month):
-    # get entries
-    try:
-        data = service.sheets.get_data(columns=['Date', 'Hours'], worksheet_id=st.session_state.config['HourTracker'], tab_name=name)
-    except Exception as e:
-        print(e)
-        return 0
+def calculate_hours_done_this_month(data, month=datetime.now().date().month):
     # if member has no entries
+    if not isinstance(data, pd.core.frame.DataFrame):
+        return 0
     if data is None:
         return 0
     # get sum of hours done during the month
@@ -149,3 +147,45 @@ def check_due_dates(scores: dict) -> tuple:
 def to_date(bignumber):
     '''convert timestamp to EST date'''
     return datetime.fromtimestamp(bignumber, tz=pytz.timezone('US/Eastern')).strftime('%m/%Y')
+
+def set_need_appearances_writer(writer: PdfWriter):
+    # See 12.7.2 and 7.7.2 for more information: http://www.adobe.com/content/dam/acom/en/devnet/acrobat/pdfs/PDF32000_2008.pdf
+    try:
+        catalog = writer._root_object
+        # get the AcroForm tree
+        if "/AcroForm" not in catalog:
+            writer._root_object.update({
+                NameObject("/AcroForm"): IndirectObject(len(writer._objects), 0, writer)
+            })
+
+        need_appearances = NameObject("/NeedAppearances")
+        writer._root_object["/AcroForm"][need_appearances] = BooleanObject(True)
+        # del writer._root_object["/AcroForm"]['NeedAppearances']
+        return writer
+
+    except Exception as e:
+        print('set_need_appearances_writer() catch : ', repr(e))
+        return writer
+
+def create_pdf(data):
+    reader = PdfReader('template.pdf')
+    page = reader.pages[0]
+
+    writer = PdfWriter()
+    set_need_appearances_writer(writer)
+
+    fields = reader.get_fields()
+    key = pdfgen.NameObject('/V')
+    value = pdfgen.create_string_object('TESTVALUE')
+    fields['Member Name'][key] = value
+
+    writer.update_page_form_field_values(page, fields=data)
+    writer.add_page(page)
+
+    # Save the output PDF file to a buffer
+    output_buffer = BytesIO()
+    writer.write(output_buffer)
+    output_buffer.seek(0)
+
+    return output_buffer
+
