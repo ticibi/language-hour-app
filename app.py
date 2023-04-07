@@ -47,17 +47,29 @@ if __name__ == '__main__':
                             st.write(st.session_state)
                         else:
                             st.write('test')
-            match self.navbar:
-                case 'Home':
-                    self.home()
-                case 'Submit Hour':
-                    self.submit_hour()
-                case 'Login':
-                    self.login()
-                case 'Admin':
-                    self.admin()
-                case default:
-                    pass
+
+            if self.navbar == 'Home':
+                self.home()
+            elif self.navbar == 'Submit Hour':
+                self.submit_hour()
+            elif self.navbar == 'Login':
+                self.login()
+            elif self.navbar == 'Admin':
+                self.admin()
+            else:
+                self.home()
+
+            #match self.navbar:
+            #    case 'Home':
+            #        self.home()
+            #    case 'Submit Hour':
+            #        self.submit_hour()
+            #    case 'Login':
+            #        self.login()
+            #    case 'Admin':
+            #        self.admin()
+            #    case default:
+            #        pass
 
         def submit_hour(self):
             if not st.session_state.authenticated:
