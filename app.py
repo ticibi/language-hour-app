@@ -11,9 +11,10 @@ from config import SESSION_VARIABLES
 def init_app():
     st.set_page_config(page_title="Language Training Management", page_icon="🌐", layout="wide")
     initialize_session_state_variables(SESSION_VARIABLES)
-    with open('components/index.html', 'r') as f:
-        html = f.read()
-    st.markdown(html, unsafe_allow_html=True)
+    # add bootstrap
+    #with open('index.html', 'r') as f:
+    #    html = f.read()
+    #st.markdown(html, unsafe_allow_html=True)
 
 
 if __name__ == '__main__':
