@@ -1,77 +1,89 @@
 import streamlit as st
-from streamlit_option_menu import option_menu
+import pandas as pd
+from excel_utils import upload_excel
+from db import reset_autoincrement, delete_row_by_id
+from models import Group, File, LanguageHour
+import models
+from config import MODALITIES
+from utils import to_excel
 
-@st.cache_data
-def add_boostrap():
-    html = '''
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-    '''
-    return st.markdown(html, unsafe_allow_html=True)
 
-def login():
-    return f'''
-    <form class="row g-3" method="POST">
-        <div class="col-md-12">
-            <label for="username" class="form-label">Username</label>
-            <input type="text" name="username" class="form-control" id="username">
-        </div>
-        <div class="col-md-12">
-          <label for="password" class="form-label">Password</label>
-          <input type="password" name="password" class="form-control" id="password">
-        </div>
-        <div class="col-12">
-            <button type="submit" class="btn btn-primary" value="Login">Login</button>
-          </div>
-      </form>
-      '''
+def render_html(file: str):
+    with open(f'components/{file}.html', 'r') as f:
+        html = f.read()
+        st.markdown(html, unsafe_allow_html=True)
 
-def navbar(options):
-    selected = option_menu(
-        menu_title='Langauge Training Management',
-        options=options,
-        orientation='horizontal',
-        icons=['app', 'app', 'app', 'app'],
-        menu_icon='diamond',
+def delete_row(db):
+    st.write('Delete Row By ID')
+    cols = st.columns([1, 1])
+    id = cols[0].number_input('Row ID', step=1)
+    cls = cols[1].selectbox('Table', options=models.__models__)
+    if st.button('Delete'):
+        delete_row_by_id(db, models.hash_table[cls], int(id))
 
-    )
-    return selected
+def delete_entities(db, cls):
+    if st.button(f'Delete {cls.__tablename__}'):
+        db.query(cls).delete()
+        db.commit()
 
-def form(title, user):
-    return f'''
-    <form>
-        <h4>{title}</h4>
-        <div class="row">
-            <div class="col">
-                <div class="form-outline">
-                    <label class="form-label" for="name">Name</label>
-                    <input disabled type="text" id="name" class="form-control" value="{user.name}" />
-                </div>
-            </div>
-            <div class="col">
-                <div class="form-outline">
-                    <label class="form-label" for="date">Date</label>
-                    <input required type="date" name="date" id="date" class="form-control" />
-                </div>
-            </div>
-            <div class="col">
-                <div class="form-outline">
-                    <label class="form-label" for="hours">Hours</label>
-                    <input required type="number" name="hours" id="hours" class="form-control" />
-                </div>
-            </div>
-            <div class="form-outline mb-4">
-                <div class="btn-group" role="group" id="activities">
-                    <label for="activities">Select Activities</label>
-                </div>
-            </div>
-        <div class="form-outline mb-4">
-            <label class="form-label" for="description">Description</label>
-            <textarea required class="form-control" name="description" id="description" rows="4"></textarea>
-        </div>
-        <button type="submit" value="Submit" class="btn btn-primary btn-block mb-4">Submit</button>
-      </form>
-    '''
+def display_entities(db, cls, exclude=[]):
+    entities = db.query(cls).all()
+    if not entities:
+        st.write(f"No {cls.__name__} entities found.")
+        return
+    data = [entity.to_dataframe() for entity in entities]
+    df = pd.concat(data)
+    if exclude:
+        df = df.drop(columns=exclude)
+    st.write(df)
 
-def card():
-    return ''''''
+def create_entity_form(db, cls, exclude=['id']):
+    with st.form(f'create_{cls.__name__}_form'):
+        st.write(f'Add {cls.__name__}')
+        for column in cls.__table__.columns:
+            if column.name not in exclude:
+                if column.name.lower() == 'date':
+                    value = st.date_input(column.name)
+                elif column.name.lower() == 'is_admin':
+                    value = st.checkbox(column.name)
+                elif column.name.lower() == 'modalities':
+                    value = st.multiselect(column.name, options=MODALITIES)
+                elif column.name.lower() == 'hours':
+                    value = st.number_input(column.name, step=1)
+                elif column.name.lower() == 'group_id':
+                    value = int(st.number_input('group', min_value=15, step=1))
+                else:
+                    value = st.text_input(column.name)
+                setattr(cls, column.name, value)
+        if st.form_submit_button('Submit'):
+            instance = cls()
+            for column in cls.__table__.columns:
+                if column.name not in exclude:
+                    setattr(instance, column.name, getattr(cls, column.name))
+            db.add(instance)
+            db.commit()
+            st.success(f'Added {cls.__name__}!')
 
+def reset_entity_id(db, cls):
+    if st.button(f'Reset {cls.__tablename__}'):
+        reset_autoincrement(cls.__tablename__)
+
+def upload_language_hours(db):
+    upload_excel(db, 2)
+
+def upload_pdf(db, user_id: int):
+    file = st.file_uploader('Upload PDF file', type='pdf')
+    if file:
+        contents = file.read()
+        try:
+            new_file = File(name=file.name, file=contents, user_id=user_id)
+            db.add(new_file)
+            db.commit()
+            st.success('File uploaded successfully!')
+        except:
+            st.warning('Failed to upload file.')
+
+def download_to_excel(db, cls, user_id: int):
+    language_hours = db.query(cls).filter(cls.user_id == user_id).all()
+    df = pd.concat([lh.to_dataframe() for lh in language_hours], ignore_index=True)
+    return to_excel(df)

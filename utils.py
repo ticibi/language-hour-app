@@ -18,7 +18,7 @@ def initialize_session_state_variables(vars):
 def to_excel(df):
     '''convert dataframe into downloadable excel file'''
     output = BytesIO()
-    writer = pd.ExcelWriter(output, engine="xlsxwriter")
+    writer = pd.ExcelWriter(output, engine='openpyxl')
     df.to_excel(writer, index=False, sheet_name="MyHistory")
     writer.save()
     return output.getvalue()

@@ -1,48 +1,27 @@
 import bcrypt
 import streamlit as st
-from config import MEMBERS, MASTER_ID
 
 
-class Authenticator:
-    def __init__(self, service):
-        self.service = service
-
-    def hash_password(self, password):
+def hash_password(password):
         salt = bcrypt.gensalt()
-        hashed_pw = bcrypt.hashpw(bytes(password, 'utf-8'), salt)
-        return hashed_pw
+        return bcrypt.hashpw(password.encode('utf-8'), salt)
 
-    def authenticate(self, username, password):
-        try:
-            data = self.service.sheets.get_data(columns=None, tab_name=MEMBERS, worksheet_id=MASTER_ID, range='A:I')
-            user_data = data.query(f'Username == "{username}"').to_dict('records')[0]
-            st.session_state.members = data.query(f'Group == "{user_data["Group"]}"').drop(columns=['Password'], axis=1)
-        except Exception as e:
-            st.error('Could not get user data.')
-            print(e)
-            return
+def validate_password(password, hash_password):
+    return bcrypt.checkpw(
+        password.encode('utf-8'),
+        hash_password.decode().encode('utf-8')
+    )
 
-        hashed_pw = self.hash_password(password)
-        
-        if bcrypt.checkpw(bytes(user_data['Password'], 'utf-8'), hashed_pw):
-            user_data.pop('Password')
-            st.session_state.current_user = user_data
-            st.session_state.authenticated = True
-        else:
-            st.error('Incorrect username or password.')
-            st.session_state.authenticated = False
+def authenticate_user(user, username, password, hashed_password):
+    if not user:
+        return False
+    if user.username == username and validate_password(password, hashed_password):
+        st.session_state.authenticated = True
+        st.session_state.current_user = user
+        st.success('Logged in!')
+        return True
+    st.warning('Invalid username or password.')
+    st.session_state.authenticated = False
+    st.session_state.current_user = None
+    return False
 
-    def login(self, header='Login'):
-        if not st.session_state.authenticated:
-            with st.form(header):
-                st.subheader(header)
-                username = st.text_input('Username', placeholder='example: jsmith').lower()
-                password = st.text_input('Password', type='password').lower()
-                login = st.form_submit_button(header)
-                if login:
-                    self.authenticate(username, password)
-
-    def logout(self):
-        for i, var in enumerate(self.session_variables):
-            self.session_variables[i] = None
-            st.session_state[var] = None

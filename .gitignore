@@ -7,6 +7,8 @@ ENV/
 env.bak/
 venv.bak/
 /views
+/components
+
 # 
 .streamlit/secrets.toml
 .streamlit/secret.json
