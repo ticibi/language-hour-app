@@ -10,7 +10,7 @@ def add_user(db):
 
         # Create input fields
         name = st.text_input('Name', placeholder='First M Last')
-        username = st.text_area('Username', placeholder='fmlast')
+        username = st.text_input('Username', placeholder='fmlast')
         password = st.text_input('Password', type='password')
         email = st.text_input('Email (optional)')
         is_admin = st.checkbox('Admin')
@@ -21,7 +21,7 @@ def add_user(db):
             user = User(
                 name=name,
                 username=username,
-                password=password,
+                password_hash=password,
                 email=email,
                 is_admin=bool(is_admin),
                 group_id=int(group_id),
