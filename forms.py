@@ -30,5 +30,5 @@ def add_user(db):
             # Commit it to the database
             with session(db) as db:
                 db.add(user)
-                st.success(f'Added {user.__name__}!')
+                st.success(f'Added User!')
 
