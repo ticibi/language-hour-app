@@ -9,6 +9,7 @@ from config import MODALITIES
 from datetime import date
 import calendar
 from load import load_user_models
+from forms import add_user
 
 def home(db):
     scores = None
@@ -91,7 +92,7 @@ def admin(db):
             display_entities(db, Group)
 
         with st.expander('Users'):
-            create_entity_form(db, User)
+            add_user(db)
             display_entities(db, User)
 
         with st.expander('Score'):
