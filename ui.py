@@ -201,15 +201,18 @@ def login(db):
                 if form.form_submit_button('Login'):
                     if username and password:
                         hashed_password = hash_password(password)
-                        if not st.session_state.current_user:
+                        user_dict = None
+                        if st.session_state.current_user:
+                            user_dict = st.session_state.current_user
+                        else:
                             user = get_user(db, username)
                             user_dict = dot_dict(user.to_dict())
-                            if authenticate_user(user_dict, username, password, hashed_password):
-                                with st.spinner('Loading...'):
-                                    user_data = load_user_models(db, st.session_state.current_user.id)
-                                    st.session_state.current_user_data = user_data
-                                container.empty()
-                                st.success('Logged in!')
+                        if authenticate_user(user_dict, username, password, hashed_password):
+                            with st.spinner('Loading...'):
+                                user_data = load_user_models(db, st.session_state.current_user.id)
+                                st.session_state.current_user_data = user_data
+                            container.empty()
+                            st.success('Logged in!')
                     else:
                         st.warning('Please enter username and password.')
                         return
