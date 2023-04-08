@@ -3,7 +3,7 @@ import streamlit as st
 from auth import authenticate_user, hash_password
 from db import get_user, commit_or_rollback
 from utils import dot_dict, get_user_monthly_hours, get_user_monthly_hours_required, create_pdf, language_hour_history_to_string
-from comps import download_file, download_to_excel, upload_pdf, delete_row, create_entity_form, display_entities, delete_entities, reset_entity_id, upload_language_hours
+from comps import submit_entry, download_file, download_to_excel, upload_pdf, delete_row, create_entity_form, display_entities, delete_entities, reset_entity_id, upload_language_hours
 from models import LanguageHour, User, Group, File, Score, Course
 from config import MODALITIES
 from datetime import date, datetime
@@ -164,9 +164,7 @@ def submit_hour(db):
                             modalities=modalities,
                             user_id=st.session_state.current_user.id,
                         )
-                        db.add(entry)
-                        db.commit()
-                        db.close()
+                        submit_entry(db, entry)
                         st.balloons()
                         st.success(f'{hours} language hours submitted!')
                     else:

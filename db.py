@@ -6,6 +6,16 @@ from models import User
 from contextlib import contextmanager
 
 
+@contextmanager
+def session(db):
+    try:
+        yield db
+        db.commit()
+    except:
+        db.rollback()
+        raise
+    finally:
+        db.close()
 
 def commit_or_rollback(db, commit: bool):
     if commit:

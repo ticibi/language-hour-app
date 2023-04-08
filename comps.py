@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas as pd
-from db import reset_autoincrement, delete_row_by_id
+from db import reset_autoincrement, delete_row_by_id, session
 from models import MODELS, TABLE, File, LanguageHour
 from utils import to_excel
+
 
 def download_file(db):
     cols = st.columns([1, 2])
@@ -21,10 +22,9 @@ def delete_row(db):
 
 def delete_entities(db, cls):
     if st.button(f'Delete {cls.__tablename__}'):
-        db.query(cls).delete()
-        db.commit()
-        db.close()
-
+        with session(db) as db:
+            db.query(cls).delete()
+        
 def display_entities(db, cls, user_id=None, exclude=[]):
     if user_id:
         entities = db.query(cls).filter(cls.user_id == user_id).all()
@@ -51,14 +51,17 @@ def create_entity_form(db, cls, exclude=['id']):
             for column in cls.__table__.columns:
                 if column.name not in exclude:
                     setattr(instance, column.name, getattr(cls, column.name))
-            db.add(instance)
-            db.commit()
-            db.close()
+            with session(db) as db:
+                db.add(instance)
             st.success(f'Added {cls.__name__}!')
 
 def reset_entity_id(db, cls):
     if st.button(f'Reset {cls.__tablename__}'):
         reset_autoincrement(cls.__tablename__)
+
+def submit_entry(db, entry):
+    with session(db) as db:
+        db.add(entry)
 
 def read_excel(file, user_id):
     '''convert lang hour excel sheet to a list'''
@@ -80,10 +83,9 @@ def upload_excel(db, user_id):
         file = st.file_uploader('Upload an excel file here to populate history', type=['xlsx'])
         if file:
             language_hours = read_excel(file, user_id)
-            for x in language_hours:
-                db.add(x)
-            db.commit()
-            db.close()
+            with session(db) as db:
+                for x in language_hours:
+                    db.add(x)
             st.success('added hours!')
 
 def upload_language_hours(db, user_id):
@@ -95,9 +97,8 @@ def upload_pdf(db, user_id: int):
         contents = file.read()
         try:
             new_file = File(name=file.name, file=contents, user_id=user_id)
-            db.add(new_file)
-            db.commit()
-            db.close()
+            with session(db) as db:
+                db.add(new_file)
             st.success('File uploaded successfully!')
         except:
             st.warning('Failed to upload file.')
