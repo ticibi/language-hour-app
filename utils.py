@@ -6,9 +6,16 @@ from PyPDF2 import PdfWriter, PdfReader
 from PyPDF2.generic import BooleanObject, NameObject, IndirectObject
 import PyPDF2.generic as pdfgen
 from config import SESSION_VARIABLES
-from datetime import datetime, date
+from datetime import date
 from sqlalchemy import func
-from models import LanguageHour, User, Group, File, Score, Course
+from models import LanguageHour, Score
+import calendar
+
+def language_hour_history_to_string(history):
+    output_string = ''
+    for row in history:
+        output_string += f'{str(row.date.day)} {str(calendar.month_abbr[int(row.date.month)])}' + ' - ' + str(row.hours) + ' hrs - ' + str(row.description) + '\n'
+    return output_string
 
 def get_user_monthly_hours(db, user_id):
     current_month = date.today().month
@@ -88,6 +95,15 @@ def set_need_appearances_writer(writer: PdfWriter):
         return writer
 
 def create_pdf(data):
+    '''data_fields = {
+        'Language': 'Arabic',
+        'Member Name': f'TEST NAME',
+        'Hours Studied': 'TESTVALUE',
+        'Date': 'MAR-2023',
+        'Listening': '0',
+        'Reading': '0',
+        'Maintenance Record': 'TEST STRING HERE',
+    }'''
     reader = PdfReader('template.pdf')
     page = reader.pages[0]
 

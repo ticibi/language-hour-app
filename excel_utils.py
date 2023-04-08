@@ -19,12 +19,12 @@ def read_excel(file, user_id):
     return language_hours
 
 def upload_excel(session, user_id):
-    st.write('Language Hour Uploader')
-    file = st.file_uploader('Upload your excel file here', type=['xlsx'])
-    if file:
-        language_hours = read_excel(file, user_id)
-        for x in language_hours:
-            session.add(x)
-        session.commit()
-        st.success('added hours!')
+    with st.expander('Language Hour Upload', expanded=True):
+        file = st.file_uploader('Upload an excel file here to populate history', type=['xlsx'])
+        if file:
+            language_hours = read_excel(file, user_id)
+            for x in language_hours:
+                session.add(x)
+            session.commit()
+            st.success('added hours!')
 

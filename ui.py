@@ -2,10 +2,13 @@ from streamlit_option_menu import option_menu
 import streamlit as st
 from auth import authenticate_user, hash_password
 from db import get_user, commit_or_rollback
-from utils import dot_dict, get_user_monthly_hours, get_user_monthly_hours_required
+from utils import dot_dict, get_user_monthly_hours, get_user_monthly_hours_required, create_pdf, language_hour_history_to_string
 from comps import download_file, download_to_excel, upload_pdf, delete_row, create_entity_form, display_entities, delete_entities, reset_entity_id, upload_language_hours
 from models import LanguageHour, User, Group, File, Score, Course
 from config import MODALITIES
+from datetime import date, datetime
+import calendar
+from sqlalchemy import extract
 
 global nav_bar
 
@@ -23,6 +26,24 @@ def home(db):
             cols = st.columns([1, 1, 2])
             file = download_to_excel(db, LanguageHour, st.session_state.current_user.id)
             cols[0].download_button(label='Download History (Excel)', data=file, file_name='language_hours.xlsx')
+            scores = db.query(Score).filter(Score.user_id == st.session_state.current_user.id).first()
+            hours = get_user_monthly_hours(db, st.session_state.current_user.id)
+            current_month = datetime.now().month
+            history = db.query(LanguageHour).filter(LanguageHour.user_id == st.session_state.current_user.id, extract('month', LanguageHour.date) == current_month).all()
+            if scores and hours and history:
+                name = st.session_state.current_user.name.split(' ')
+                record = language_hour_history_to_string(history)
+                data_fields = {
+                    'Language': scores.langauge,
+                    'Member Name': f'{name[2].upper()} {name[0].upper()} {name[1].upper()}',
+                    'Hours Studied': hours,
+                    'Date': f'{calendar.month_abbr[date.today().month]}-{date.today().year}',
+                    'Listening': scores.listening,
+                    'Reading': scores.reading,
+                    'Maintenance Record': record,
+                }
+            pdf = create_pdf(data_fields)
+            cols[1].download_button(label='Create 623A', data=pdf, file_name=f'623A_DATE_LASTNAME.pdf')
             display_entities(db, LanguageHour, user_id=st.session_state.current_user.id, exclude=['id', 'user_id'])
 
 def admin(db):

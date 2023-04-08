@@ -9,7 +9,7 @@ venv.bak/
 /views
 /components
 /static
-old_app.py
+/archive
 
 # 
 .streamlit/secrets.toml
