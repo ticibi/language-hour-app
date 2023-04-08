@@ -23,6 +23,7 @@ def delete_entities(db, cls):
     if st.button(f'Delete {cls.__tablename__}'):
         db.query(cls).delete()
         db.commit()
+        db.close()
 
 def display_entities(db, cls, user_id=None, exclude=[]):
     if user_id:
@@ -52,6 +53,7 @@ def create_entity_form(db, cls, exclude=['id']):
                     setattr(instance, column.name, getattr(cls, column.name))
             db.add(instance)
             db.commit()
+            db.close()
             st.success(f'Added {cls.__name__}!')
 
 def reset_entity_id(db, cls):
@@ -73,14 +75,15 @@ def read_excel(file, user_id):
         language_hours.append(language_hour)
     return language_hours
 
-def upload_excel(session, user_id):
+def upload_excel(db, user_id):
     with st.expander('Language Hour Upload', expanded=True):
         file = st.file_uploader('Upload an excel file here to populate history', type=['xlsx'])
         if file:
             language_hours = read_excel(file, user_id)
             for x in language_hours:
-                session.add(x)
-            session.commit()
+                db.add(x)
+            db.commit()
+            db.close()
             st.success('added hours!')
 
 def upload_language_hours(db, user_id):
@@ -94,6 +97,7 @@ def upload_pdf(db, user_id: int):
             new_file = File(name=file.name, file=contents, user_id=user_id)
             db.add(new_file)
             db.commit()
+            db.close()
             st.success('File uploaded successfully!')
         except:
             st.warning('Failed to upload file.')

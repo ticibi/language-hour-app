@@ -3,11 +3,15 @@ from sqlalchemy_utils import create_database, database_exists
 from extensions import Base, engine
 import streamlit as st
 from models import User
+from contextlib import contextmanager
+
 
 
 def commit_or_rollback(db, commit: bool):
     if commit:
         db.commit()
+        db.refresh()
+        db.close()
         st.success("Changes committed!")
     else:
         db.rollback()
@@ -25,6 +29,8 @@ def delete_row_by_id(db, cls, id):
     if row:
         db.delete(row)
         db.commit()
+        db.refresh()
+        db.close()
         st.success(f"Row deleted successfully!")
     else:
         st.warning(f"Row not found.")

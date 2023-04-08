@@ -10,5 +10,4 @@ def get_user_models(db, user_id) -> dict:
         data = db.query(model).filter_by(user_id=user_id).all()
         if data:
             user_data[model_name] = data
-    db.close()
     return user_data

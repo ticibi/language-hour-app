@@ -166,6 +166,7 @@ def submit_hour(db):
                         )
                         db.add(entry)
                         db.commit()
+                        db.close()
                         st.balloons()
                         st.success(f'{hours} language hours submitted!')
                     else:
