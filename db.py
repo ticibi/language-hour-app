@@ -27,9 +27,7 @@ def commit_or_rollback(db, commit: bool):
             st.warning("Changes rolled back.")
 
 def get_user(db, username: str):
-        with session(db) as db:
-            result = db.query(User).filter(User.username == username).first()
-        return result
+    return db.query(User).filter(User.username == username).first()
 
 def reset_autoincrement(table_name):
     with engine.connect() as conn:
@@ -51,23 +49,36 @@ def create_db():
         try:
             create_database(engine.url)
             print('created database')
-        except:
-            print('could not create database')
+        except Exception as e:
+            print(f"Could not create database: {e}")
+            return None
+    
     try:
         conn = engine.connect()
         print('Connection successful!')
         conn.close()
     except Exception as e:
-        print('Error:', e)
+        print(f"Error connecting to database: {e}")
+        return None
     
     Session = sessionmaker(bind=engine)
     session = Session()
 
-    Base.metadata.create_all(engine)
-    st.session_state['db'] = session
-
-    return session
+    try:
+        Base.metadata.create_all(engine)
+        st.session_state['db'] = session
+        print('Successfully created database.')
+        return session
+    except Exception as e:
+        print(f"Error creating tables: {e}")
+        session.close()
+        return None
 
 @st.cache_resource
 def clear_db():
-    Base.metadata.drop_all(engine)
+    try:
+        Base.metadata.drop_all(engine)
+        return True
+    except Exception as e:
+        print(f"Error dropping tables: {e}")
+        return False

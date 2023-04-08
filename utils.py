@@ -8,7 +8,7 @@ import PyPDF2.generic as pdfgen
 from config import SESSION_VARIABLES
 from datetime import date
 from sqlalchemy import func
-from models import LanguageHour, Score
+from models import LanguageHour
 import calendar
 from db import session
 from datetime import datetime
@@ -66,15 +66,15 @@ def calculate_total_hours(filtered_data):
     return total_hours
 
 def calculate_required_hours(score_data):
-    l = score_data.listening
-    r = score_data.reading
-    if l in ['0', '0+', '1', '1+'] and r in ['0', '0+', '1', '1+']:
+    listening = score_data.listening
+    reading = score_data.reading
+    if listening in ['0', '0+', '1', '1+'] and reading in ['0', '0+', '1', '1+']:
         return 12
-    elif (l == '2' and r in ['2', '2+']) or (r == '2' and l in ['2', '2+']):
+    elif (listening == '2' and reading in ['2', '2+']) or (reading == '2' and listening in ['2', '2+']):
         return 8
-    elif (l in ['2', '2+'] and r in ['2+', '3']) or (l in ['2', '2+'] and r in ['2+', '3']):
+    elif (listening in ['2', '2+'] and reading in ['2+', '3']) or (listening in ['2', '2+'] and reading in ['2+', '3']):
         return 6
-    elif l in ['3', '3+', '4'] and r in ['3', '3+', '4']:
+    elif listening in ['3', '3+', '4'] and reading in ['3', '3+', '4']:
         return 4
     else:
         return 0
@@ -131,29 +131,31 @@ def set_need_appearances_writer(writer: PdfWriter):
         print('set_need_appearances_writer() catch : ', repr(e))
         return writer
 
-def create_pdf(data):
-    '''data_fields = {
-        'Language': 'Arabic',
-        'Member Name': f'TEST NAME',
-        'Hours Studied': 'TESTVALUE',
-        'Date': 'MAR-2023',
-        'Listening': '0',
-        'Reading': '0',
-        'Maintenance Record': 'TEST STRING HERE',
-    }'''
-    reader = PdfReader('template.pdf')
+def create_pdf(template_path):
+    '''Create a PDF from a template file and return the PDF object.'''
+    reader = PdfReader(template_path)
     page = reader.pages[0]
 
     writer = PdfWriter()
     set_need_appearances_writer(writer)
-
-    fields = reader.get_fields()
-    key = pdfgen.NameObject('/V')
-    value = pdfgen.create_string_object('TESTVALUE')
-    fields['Member Name'][key] = value
-
-    writer.update_page_form_field_values(page, fields=data)
     writer.add_page(page)
+
+    # Save the output PDF file to a buffer
+    output_buffer = BytesIO()
+    writer.write(output_buffer)
+    output_buffer.seek(0)
+
+    return output_buffer
+
+def fill_data_into_pdf(pdf, data):
+    '''Fill in data into a PDF object and return the updated PDF object.'''
+    fields = pdf.get_fields()
+    for key, value in data.items():
+        fields[key][pdfgen.NameObject('/V')] = pdfgen.create_string_object(str(value))
+
+    writer = PdfWriter()
+    set_need_appearances_writer(writer)
+    writer.update_page_form_field_values(pdf.pages[0], fields=fields)
 
     # Save the output PDF file to a buffer
     output_buffer = BytesIO()

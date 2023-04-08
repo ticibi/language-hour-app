@@ -1,8 +1,8 @@
 from streamlit_option_menu import option_menu
 import streamlit as st
 from auth import authenticate_user, hash_password
-from db import get_user, commit_or_rollback
-from utils import calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, get_user_monthly_hours, create_pdf, language_hour_history_to_string
+from db import get_user, commit_or_rollback, session
+from utils import fill_data_into_pdf, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, get_user_monthly_hours, create_pdf, language_hour_history_to_string
 from comps import submit_entry, download_file, download_to_excel, upload_pdf, delete_row, create_entity_form, display_entities, delete_entities, reset_entity_id, upload_language_hours
 from models import LanguageHour, User, Group, File, Score, Course
 from config import MODALITIES
@@ -19,43 +19,59 @@ def home(db):
         with columns[1]:
             st.warning('You must log in to access this site.')
             return
-    with columns[1]:
-        #upload_pdf(db, st.session_state.current_user.id)
+        
+    def display_language_hour_history():
+        # Create columns for the table
+        cols = st.columns([1, 1, 2])
+
+        # Download the language hour history as an Excel file
+        file = download_to_excel(db, LanguageHour, st.session_state.current_user.id)
+        cols[0].download_button(label='Download History (Excel)', data=file, file_name='language_hours.xlsx')
+
+        # Query the database for data
+        history = st.session_state.current_user_data.LanguageHour
+        scores = st.session_state.current_user_data.Score[0]
+
+        # Get the current month and year
+        month = date.today().month
+        year = date.today().year
+
+        # Filter the language hour history for the current month
+        history_this_month = filter_monthly_hours(history, month, year)
+        hours_this_month = calculate_total_hours(history_this_month)
+
+        # Fill in the PDF if there is enough data
+        if scores and hours and history_this_month:
+            name = st.session_state.current_user.name.split(' ')
+            record = language_hour_history_to_string(history_this_month)
+            formatted_date = f'{calendar.month_abbr[date.today().month]}-{date.today().year}'
+            data_fields = {
+                'Language': scores.langauge,
+                'Member Name': f'{name[2].upper()} {name[0].upper()} {name[1].upper()}',
+                'Hours Studied': hours_this_month,
+                'Date': formatted_date,
+                'Listening': scores.listening,
+                'Reading': scores.reading,
+                'Maintenance Record': record,
+            }
+            pdf = create_pdf('template.pdf')
+            filled_pdf = fill_data_into_pdf(pdf, data_fields)
+            cols[1].download_button(label='Create 623A', data=filled_pdf, file_name=f'623A_{formatted_date.upper()}_{name[2].upper()}.pdf')
+
+    # Define a function to display the language hour history table
+    def display_language_hours():
         upload_language_hours(db, st.session_state.current_user.id)
-        # show language hour history table
+
+    # Define a function to display the entities in the LanguageHour table
+    def display_language_hour_entities():
+        display_entities(db, LanguageHour, user_id=st.session_state.current_user.id, exclude=['id', 'user_id'])
+
+    columns = st.columns([1, 3, 1])
+    with columns[1]:
+        display_language_hours()
         with st.expander('Language Hour History', expanded=True):
-            cols = st.columns([1, 1, 2])
-            file = download_to_excel(db, LanguageHour, st.session_state.current_user.id)
-            cols[0].download_button(label='Download History (Excel)', data=file, file_name='language_hours.xlsx')
-
-            # query database for data
-            hours = get_user_monthly_hours(db, st.session_state.current_user.id)
-            scores = st.session_state.current_user_data.Score[0]
-            history = st.session_state.current_user_data.LanguageHour
-
-
-            month = date.today().month
-            year = date.today().year
-
-            history_this_month = filter_monthly_hours(st.session_state.current_user_data.LanguageHour, month, year)
-  
-            # fill in the pdf
-            if scores and hours and history_this_month:
-                name = st.session_state.current_user.name.split(' ')
-                record = language_hour_history_to_string(history_this_month)
-                formatted_date = f'{calendar.month_abbr[date.today().month]}-{date.today().year}'
-                data_fields = {
-                    'Language': scores.langauge,
-                    'Member Name': f'{name[2].upper()} {name[0].upper()} {name[1].upper()}',
-                    'Hours Studied': hours,
-                    'Date': formatted_date,
-                    'Listening': scores.listening,
-                    'Reading': scores.reading,
-                    'Maintenance Record': record,
-                }
-                pdf = create_pdf(data_fields)
-                cols[1].download_button(label='Create 623A', data=pdf, file_name=f'623A_{formatted_date.upper()}_{name[2].upper()}.pdf')
-            display_entities(db, LanguageHour, user_id=st.session_state.current_user.id, exclude=['id', 'user_id'])
+            display_language_hour_history()
+            display_language_hour_entities()
 
 def admin(db):
     columns = st.columns([1, 3, 1])
@@ -201,18 +217,15 @@ def login(db):
                 if form.form_submit_button('Login'):
                     if username and password:
                         hashed_password = hash_password(password)
-                        user_dict = None
-                        if st.session_state.current_user:
-                            user_dict = st.session_state.current_user
-                        else:
+                        with session(db) as db:
                             user = get_user(db, username)
                             user_dict = dot_dict(user.to_dict())
-                        if authenticate_user(user_dict, username, password, hashed_password):
-                            with st.spinner('Loading...'):
-                                user_data = load_user_models(db, st.session_state.current_user.id)
-                                st.session_state.current_user_data = user_data
-                            container.empty()
-                            st.success('Logged in!')
+                            if authenticate_user(user_dict, username, password, hashed_password):
+                                with st.spinner('Loading...'):
+                                    user_data = load_user_models(db, st.session_state.current_user.id)
+                                    st.session_state.current_user_data = user_data
+                                container.empty()
+                                st.success('Logged in!')
                     else:
                         st.warning('Please enter username and password.')
                         return
