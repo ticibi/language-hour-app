@@ -2,7 +2,7 @@ from streamlit_option_menu import option_menu
 import streamlit as st
 from auth import authenticate_user, hash_password
 from db import get_user, commit_or_rollback, session
-from utils import fill_data_into_pdf, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, get_user_monthly_hours, create_pdf, language_hour_history_to_string
+from utils import calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
 from comps import submit_entry, download_file, download_to_excel, upload_pdf, delete_row, create_entity_form, display_entities, delete_entities, reset_entity_id, upload_language_hours
 from models import LanguageHour, User, Group, File, Score, Course
 from config import MODALITIES
@@ -41,7 +41,7 @@ def home(db):
         hours_this_month = calculate_total_hours(history_this_month)
 
         # Fill in the PDF if there is enough data
-        if scores and hours and history_this_month:
+        if scores and hours_this_month and history_this_month:
             name = st.session_state.current_user.name.split(' ')
             record = language_hour_history_to_string(history_this_month)
             formatted_date = f'{calendar.month_abbr[date.today().month]}-{date.today().year}'
@@ -54,9 +54,8 @@ def home(db):
                 'Reading': scores.reading,
                 'Maintenance Record': record,
             }
-            pdf = create_pdf('template.pdf')
-            filled_pdf = fill_data_into_pdf(pdf, data_fields)
-            cols[1].download_button(label='Create 623A', data=filled_pdf, file_name=f'623A_{formatted_date.upper()}_{name[2].upper()}.pdf')
+            pdf = create_pdf(data_fields)
+            cols[1].download_button(label='Create 623A', data=pdf, file_name=f'623A_{formatted_date.upper()}_{name[2].upper()}.pdf')
 
     # Define a function to display the language hour history table
     def display_language_hours():
@@ -205,7 +204,7 @@ def submit_hour(db):
 
 def login(db):
     columns = st.columns([1, 1, 1])
-    # display Login view
+    # Display Login view
     if not st.session_state.authenticated:
         with columns[1]:
             container = st.empty()
@@ -217,17 +216,16 @@ def login(db):
                 if form.form_submit_button('Login'):
                     if username and password:
                         hashed_password = hash_password(password)
-                        with session(db) as db:
-                            user = get_user(db, username)
-                            user_dict = dot_dict(user.to_dict())
-                            if authenticate_user(user_dict, username, password, hashed_password):
-                                with st.spinner('Loading...'):
-                                    user_data = load_user_models(db, st.session_state.current_user.id)
-                                    st.session_state.current_user_data = user_data
-                                container.empty()
-                                st.success('Logged in!')
+                        user = get_user(db, username)
+                        user = db.query(User).filter_by(username=username).first()
+                        user_dict = dot_dict(user.to_dict())
+                        if authenticate_user(user_dict, username, password, hashed_password):
+                            with st.spinner('Loading...'):
+                                user_data = load_user_models(db, st.session_state.current_user.id)
+                                st.session_state.current_user_data = user_data
+                            container.empty()
+                            st.success('Logged in!')
                     else:
                         st.warning('Please enter username and password.')
                         return
-
 

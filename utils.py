@@ -8,7 +8,7 @@ import PyPDF2.generic as pdfgen
 from config import SESSION_VARIABLES
 from datetime import date
 from sqlalchemy import func
-from models import LanguageHour
+from models import LanguageHour, Score
 import calendar
 from db import session
 from datetime import datetime
@@ -78,16 +78,6 @@ def calculate_required_hours(score_data):
         return 4
     else:
         return 0
-
-def get_user_monthly_hours(db, user_id):
-    current_month = date.today().month
-    current_year = date.today().year
-    with session(db) as db:
-        total_hours = db.query(func.sum(LanguageHour.hours)).\
-            filter(LanguageHour.user_id == user_id).\
-            filter(func.extract('month', LanguageHour.date) == current_month).\
-            filter(func.extract('year', LanguageHour.date) == current_year).scalar() or 0
-    return total_hours
     
 def initialize_session_state_variables(vars=SESSION_VARIABLES):
     '''helper function to initialize streamlit session state variables'''
@@ -131,31 +121,29 @@ def set_need_appearances_writer(writer: PdfWriter):
         print('set_need_appearances_writer() catch : ', repr(e))
         return writer
 
-def create_pdf(template_path):
-    '''Create a PDF from a template file and return the PDF object.'''
-    reader = PdfReader(template_path)
+def create_pdf(data_fields):
+    '''data_fields = {
+        'Language': 'Arabic',
+        'Member Name': f'TEST NAME',
+        'Hours Studied': 'TESTVALUE',
+        'Date': 'MAR-2023',
+        'Listening': '0',
+        'Reading': '0',
+        'Maintenance Record': 'TEST STRING HERE',
+    }'''
+    reader = PdfReader('template.pdf')
     page = reader.pages[0]
 
     writer = PdfWriter()
     set_need_appearances_writer(writer)
+
+    fields = reader.get_fields()
+    key = pdfgen.NameObject('/V')
+    value = pdfgen.create_string_object('TESTVALUE')
+    fields['Member Name'][key] = value
+
+    writer.update_page_form_field_values(page, fields=data_fields)
     writer.add_page(page)
-
-    # Save the output PDF file to a buffer
-    output_buffer = BytesIO()
-    writer.write(output_buffer)
-    output_buffer.seek(0)
-
-    return output_buffer
-
-def fill_data_into_pdf(pdf, data):
-    '''Fill in data into a PDF object and return the updated PDF object.'''
-    fields = pdf.get_fields()
-    for key, value in data.items():
-        fields[key][pdfgen.NameObject('/V')] = pdfgen.create_string_object(str(value))
-
-    writer = PdfWriter()
-    set_need_appearances_writer(writer)
-    writer.update_page_form_field_values(pdf.pages[0], fields=fields)
 
     # Save the output PDF file to a buffer
     output_buffer = BytesIO()
