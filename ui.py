@@ -36,7 +36,8 @@ def admin(db):
             st.warning('You are not authorized to access this tab.')
             return
     with columns[1]:
-        upload_language_hours(db)
+        user_id = st.number_input('User ID', value=st.session_state.current_user.id, step=1)
+        upload_language_hours(db, user_id)
 
         with st.expander('Groups'):
             create_entity_form(db, Group)
@@ -92,7 +93,7 @@ def navbar(db):
         orientation='horizontal',
         menu_icon='diamond',
     )
-    
+
     if nav_bar == 'Login':
         login(db)
     elif nav_bar == 'Home':
