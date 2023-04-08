@@ -80,7 +80,7 @@ def read_excel(file, user_id):
 
 def upload_excel(db, user_id):
     with st.expander('Language Hour Upload', expanded=True):
-        file = st.file_uploader('Upload an excel file here to populate history', type=['xlsx'])
+        file = st.file_uploader(':green[Upload an excel file here to populate history]', type=['xlsx'])
         if file:
             language_hours = read_excel(file, user_id)
             with session(db) as db:

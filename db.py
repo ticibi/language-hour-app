@@ -29,6 +29,9 @@ def commit_or_rollback(db, commit: bool):
 def get_user(db, username: str):
     return db.query(User).filter(User.username == username).first()
 
+def get_user_id(db, username):
+    return int(db.query(User).filter(User.username == username).first().id)
+
 def reset_autoincrement(table_name):
     with engine.connect() as conn:
         conn.execute(f"ALTER TABLE {table_name} AUTO_INCREMENT = 1")

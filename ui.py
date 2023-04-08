@@ -9,7 +9,7 @@ from config import MODALITIES
 from datetime import date
 import calendar
 from load import load_user_models
-from forms import add_user
+from forms import add_user, add_group, add_score
 
 def home(db):
     scores = None
@@ -42,6 +42,7 @@ def home(db):
         hours_this_month = calculate_total_hours(history_this_month)
 
         # Fill in the PDF if there is enough data
+        print('Line 45:', scores, hours_this_month, history_this_month)
         if scores and hours_this_month and history_this_month:
             name = st.session_state.current_user.name.split(' ')
             record = language_hour_history_to_string(history_this_month)
@@ -64,7 +65,7 @@ def home(db):
 
     # Define a function to display the entities in the LanguageHour table
     def display_language_hour_entities():
-        display_entities(db, LanguageHour, user_id=st.session_state.current_user.id, exclude=['id', 'user_id'])
+        display_entities(db, LanguageHour, user_id=st.session_state.current_user.id, exclude=['user_id'])
 
     columns = st.columns([1, 3, 1])
     with columns[1]:
@@ -88,7 +89,7 @@ def admin(db):
         upload_language_hours(db, user_id)
 
         with st.expander('Groups'):
-            create_entity_form(db, Group)
+            add_group(db)
             display_entities(db, Group)
 
         with st.expander('Users'):
@@ -96,7 +97,7 @@ def admin(db):
             display_entities(db, User)
 
         with st.expander('Score'):
-            create_entity_form(db, Score)
+            add_score(db)
             display_entities(db, Score)
 
         with st.expander('Course'):
@@ -107,6 +108,9 @@ def admin(db):
             display_entities(db, File)
             upload_pdf(db, st.session_state.current_user.id)
             download_file(db)
+
+        with st.expander('LanguageHours'):
+            display_entities(db, LanguageHour)
 
         with st.expander('Database Management'):
             delete_row(db)
