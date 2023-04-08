@@ -2,7 +2,19 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import create_database, database_exists
 from extensions import Base, engine
 import streamlit as st
+from models import User
 
+
+def commit_or_rollback(db, commit: bool):
+    if commit:
+        db.commit()
+        st.success("Changes committed!")
+    else:
+        db.rollback()
+        st.warning("Changes rolled back.")
+
+def get_user(db, username: str):
+        return db.query(User).filter(User.username == username).first()
 
 def reset_autoincrement(table_name):
     with engine.connect() as conn:
@@ -41,5 +53,6 @@ def create_db():
 
     return session
 
+@st.cache_resource
 def clear_db():
     Base.metadata.drop_all(engine)

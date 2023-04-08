@@ -7,6 +7,12 @@ import models
 from config import MODALITIES
 from utils import to_excel
 
+def download_file(db):
+    cols = st.columns([1, 2])
+    file_id = cols[1].number_input('File ID', step=1)
+    if cols[0].button('Download File by ID'):
+        if file_id:
+            pass
 
 def render_html(file: str):
     with open(f'components/{file}.html', 'r') as f:
@@ -18,7 +24,7 @@ def delete_row(db):
     cols = st.columns([1, 1])
     id = cols[0].number_input('Row ID', step=1)
     cls = cols[1].selectbox('Table', options=models.__models__)
-    if st.button('Delete'):
+    if st.button('Delete Row'):
         delete_row_by_id(db, models.hash_table[cls], int(id))
 
 def delete_entities(db, cls):
@@ -26,8 +32,11 @@ def delete_entities(db, cls):
         db.query(cls).delete()
         db.commit()
 
-def display_entities(db, cls, exclude=[]):
-    entities = db.query(cls).all()
+def display_entities(db, cls, user_id=None, exclude=[]):
+    if user_id:
+        entities = db.query(cls).filter(cls.user_id == user_id).all()
+    else:
+        entities = db.query(cls).all()
     if not entities:
         st.write(f"No {cls.__name__} entities found.")
         return
@@ -42,18 +51,7 @@ def create_entity_form(db, cls, exclude=['id']):
         st.write(f'Add {cls.__name__}')
         for column in cls.__table__.columns:
             if column.name not in exclude:
-                if column.name.lower() == 'date':
-                    value = st.date_input(column.name)
-                elif column.name.lower() == 'is_admin':
-                    value = st.checkbox(column.name)
-                elif column.name.lower() == 'modalities':
-                    value = st.multiselect(column.name, options=MODALITIES)
-                elif column.name.lower() == 'hours':
-                    value = st.number_input(column.name, step=1)
-                elif column.name.lower() == 'group_id':
-                    value = int(st.number_input('group', min_value=15, step=1))
-                else:
-                    value = st.text_input(column.name)
+                value = st.text_input(column.name)
                 setattr(cls, column.name, value)
         if st.form_submit_button('Submit'):
             instance = cls()
@@ -68,8 +66,8 @@ def reset_entity_id(db, cls):
     if st.button(f'Reset {cls.__tablename__}'):
         reset_autoincrement(cls.__tablename__)
 
-def upload_language_hours(db):
-    upload_excel(db, 2)
+def upload_language_hours(db, user_id):
+    upload_excel(db, user_id)
 
 def upload_pdf(db, user_id: int):
     file = st.file_uploader('Upload PDF file', type='pdf')
@@ -85,5 +83,7 @@ def upload_pdf(db, user_id: int):
 
 def download_to_excel(db, cls, user_id: int):
     language_hours = db.query(cls).filter(cls.user_id == user_id).all()
+    if not language_hours:
+        return
     df = pd.concat([lh.to_dataframe() for lh in language_hours], ignore_index=True)
     return to_excel(df)

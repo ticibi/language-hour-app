@@ -22,6 +22,12 @@ class BaseModel:
         df = pd.DataFrame([data])
         df = df.reset_index(drop=True)
         return df
+    
+    def to_dict(self):
+        data = {}
+        for column in self.__table__.columns:
+            data[column.name] = getattr(self, column.name)
+        return data
 
 class User(Base, BaseModel):
     __tablename__ = 'users'
@@ -36,30 +42,12 @@ class User(Base, BaseModel):
     scores = relationship('Score')
     courses = relationship('Course')
     files = relationship('File')
-    
-    def to_dataframe(self):
-        data = {
-            'id': [self.id],
-            'name': [self.name],
-            'username': [self.username],
-            'password_hash': [self.password_hash],
-            'is_admin': [self.is_admin],
-            'group_id': [self.group_id],
-        }
-        return pd.DataFrame(data)
 
 class Group(Base, BaseModel):
     __tablename__ = 'groups'
     id = Column(Integer, Sequence('group_id_seq'), primary_key=True)
     name = Column(String(50), nullable=False, unique=True)
     users = relationship('User', backref='group') # Relationship with User table
-    
-    def to_dataframe(self):
-        data = {
-            'id': [self.id],
-            'name': [self.name],
-        }
-        return pd.DataFrame(data)
 
 class Course(Base, BaseModel):
     __tablename__ = 'courses'
@@ -71,16 +59,6 @@ class Course(Base, BaseModel):
     start_date = Column(Date)
     end_date = Column(Date)
     user = relationship('User', back_populates='courses')
-
-    def __repr__(self):
-        return f"<Course(id='{self.id}', name='{self.name}')>"
-    
-    def to_dataframe(self):
-        data = {
-            'id': [self.id],
-            'name': [self.name],
-        }
-        return pd.DataFrame(data)
 
 class LanguageHour(Base, BaseModel):
     __tablename__ = 'language_hours'

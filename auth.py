@@ -12,16 +12,21 @@ def validate_password(password, hash_password):
         hash_password.decode().encode('utf-8')
     )
 
-def authenticate_user(user, username, password, hashed_password):
-    if not user:
+def authenticate_user(user_dict, username, password, hashed_password):
+    if not user_dict:
         return False
-    if user.username == username and validate_password(password, hashed_password):
+    if user_dict.username == username and validate_password(password, hashed_password):
         st.session_state.authenticated = True
-        st.session_state.current_user = user
+        add_authenticated_user_to_session_state(user_dict)
         st.success('Logged in!')
         return True
     st.warning('Invalid username or password.')
     st.session_state.authenticated = False
     st.session_state.current_user = None
     return False
+
+def add_authenticated_user_to_session_state(user_dict):
+     del user_dict['password_hash']
+     st.session_state.current_user = user_dict
+     st.session_state.logged_in = True
 

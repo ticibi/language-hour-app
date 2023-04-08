@@ -1,15 +1,48 @@
 import streamlit as st
 import pandas as pd
-import pytz
 from io import BytesIO
 from time import time
-from datetime import datetime
-import config
 from PyPDF2 import PdfWriter, PdfReader
 from PyPDF2.generic import BooleanObject, NameObject, IndirectObject
 import PyPDF2.generic as pdfgen
+from config import SESSION_VARIABLES
+from datetime import datetime, date
+from sqlalchemy import func
+from models import LanguageHour, User, Group, File, Score, Course
 
-def initialize_session_state_variables(vars):
+def get_user_monthly_hours(db, user_id):
+    current_month = date.today().month
+    current_year = date.today().year
+    total_hours = db.query(func.sum(LanguageHour.hours)).\
+        filter(LanguageHour.user_id == user_id).\
+        filter(func.extract('month', LanguageHour.date) == current_month).\
+        filter(func.extract('year', LanguageHour.date) == current_year).scalar() or 0
+    return total_hours
+
+def get_user_monthly_hours_required(db, user_id):
+    result = db.query(Score).filter(Score.user_id == user_id).first()
+    l = result.listening
+    r = result.reading
+
+    if l in ['0', '0+', '1', '1+'] and r in ['0', '0+', '1', '1+']:
+        return 12
+    elif (l == '2' and r in ['2', '2+']) or (r == '2' and l in ['2', '2+']):
+        return 8
+    elif (l in ['2', '2+'] and r in ['2+', '3']) or (l in ['2', '2+'] and r in ['2+', '3']):
+        return 6
+    elif l in ['3', '3+', '4'] and r in ['3', '3+', '4']:
+        return 4
+    else:
+        return 0
+    
+class dot_dict(dict):
+    def __getattr__(self, name):
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError(name)
+
+def initialize_session_state_variables(vars=SESSION_VARIABLES):
     '''helper function to initialize streamlit session state variables'''
     for var in vars:
         if var not in st.session_state:
@@ -20,7 +53,6 @@ def to_excel(df):
     output = BytesIO()
     writer = pd.ExcelWriter(output, engine='openpyxl')
     df.to_excel(writer, index=False, sheet_name="MyHistory")
-    writer.save()
     return output.getvalue()
 
 def timeit(func):
@@ -33,120 +65,6 @@ def timeit(func):
         return output
     return wrapper
 
-def calculate_hours_done_this_month(data, month=datetime.now().date().month):
-    # if member has no entries
-    if not isinstance(data, pd.core.frame.DataFrame):
-        return 0
-    if data is None:
-        return 0
-    # get sum of hours done during the month
-    hours = sum([int(row[1]) for row in data.values if int(row[0][5:7]) == month])
-    return hours
-
-def calculate_hours_required(data: dict) -> int:
-    if not data or data is None:
-        return 0
-
-    def _eval(_string: str):  
-        value = 0.0
-        if '+' in _string:
-            value += 0.5
-            _string = _string.strip('+')
-            value += float(_string)
-        else:
-            value = float(_string)
-        return value
-
-    BAD = ['1+', '1', '0+', '0']
-    OKAY = ['2', '2+']
-    GOOD = ['3', '3+', '4']
-
-    listen = data[config.CLANG_L]
-    read = data[config.CLANG_R]
-
-    # if either score is below 2
-    if listen in BAD or read in BAD:
-        return 12
-        
-    # if score is 3+
-    if listen in GOOD and read in GOOD:
-        return 0
-
-    # if score is 2
-    else:
-        table ={
-            5.5: 2,
-            5.0: 4,
-            4.5: 6,
-            4.0: 8
-        }
-        l_value = _eval(listen)
-        r_value = _eval(read)
-        return table[l_value + r_value]
-
-def get_user_info_index(name):
-    '''get the index of the row where user data is located'''
-    df = st.session_state.members
-    index = df.loc[df['Name'] ==  name].index[0]
-    return index + 1
-
-def check_due_dates(scores: dict) -> tuple:
-    '''return range as timestamp tuple (DLPT due date, SLTE due date)'''
-    str_format = '%m/%d/%Y'
-    one_year = 31536000.0
-    one_month = 2628000.0
-
-    listen = scores[config.CLANG_L].strip("+")
-    read = scores[config.CLANG_R].strip("+")
-
-    if scores[config.DLTP_DATE] != '':
-        last_dlpt = datetime.strptime(scores[config.DLTP_DATE], str_format).timestamp()
-    else:
-        last_dlpt = -1
-
-    if scores[config.SLTE_DATE] != '':
-        last_slte = datetime.strptime(scores[config.SLTE_DATE], str_format).timestamp()
-    else:
-        last_slte = -1
-
-    def calculate_next_dlpt_date(last_date):
-        '''returns next due date as timestamp'''
-        _next_dlpt = last_date
-        if last_date == -1:
-            return -1
-        if int(listen) >= 3 and int(read) >= 3:
-            _next_dlpt = last_date + one_year * 2
-        
-        elif int(listen) >= 2 and int(read) >= 2:
-            _next_dlpt = last_date + one_year
-
-        elif int(listen) < 2 and int(read) < 2:
-            _next_dlpt = last_date + one_year
-        return _next_dlpt
-    
-    def calculate_next_slte_date(last_date):
-        '''returns next due date as timestamp'''
-        _next_slte = last_date
-        if last_date == -1:
-            return -1
-        if int(listen) >= 3 and int(read) >= 3:
-            _next_slte = last_date + one_month * config.SLTE_RANGE['3']
-        
-        elif int(listen) >= 2 and int(read) >= 2:
-            _next_slte = last_date + one_month * config.SLTE_RANGE['2']
-
-        elif int(listen) < 2 and int(read) < 2:
-            _next_slte = last_date + one_month * config.SLTE_RANGE['1']
-        return _next_slte
-
-    next_dlpt = calculate_next_dlpt_date(last_dlpt)
-    next_slte = calculate_next_slte_date(last_slte)
-    
-    return (next_dlpt, next_slte)
-
-def to_date(bignumber):
-    '''convert timestamp to EST date'''
-    return datetime.fromtimestamp(bignumber, tz=pytz.timezone('US/Eastern')).strftime('%m/%Y')
 
 def set_need_appearances_writer(writer: PdfWriter):
     # See 12.7.2 and 7.7.2 for more information: http://www.adobe.com/content/dam/acom/en/devnet/acrobat/pdfs/PDF32000_2008.pdf

@@ -10,6 +10,7 @@ DB_NAME = st.secrets['DB_NAME']
 SESSION_VARIABLES = [
     'db', # sql database session
     'authenticated', # user authentication status
+    'logged_in', # current user login status
     'current_user', # current authenticated user
     'debug', # debug mode state
 ]
