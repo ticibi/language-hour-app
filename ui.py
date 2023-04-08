@@ -106,14 +106,14 @@ def admin(db):
 def sidebar(db):
     with st.sidebar:
         with st.expander('Session State', expanded=True):
-            #if st.session_state.current_user:
-                #if st.session_state.current_user.is_admin:
-                    #st.write('(Admin)')
+            if st.session_state.current_user:
+                if st.session_state.current_user.is_admin:
+                    st.write('(Admin)')
                     st.write(st.session_state)
-                #else:
-                    #st.write(st.session_state)
-            #else:
-            #    st.sidebar.warning('You must log in to access this site.')
+                else:
+                    st.write('')
+            else:
+                st.sidebar.warning('You must log in to access this site.')
 
 def navbar(db):
     nav_bar = option_menu(
