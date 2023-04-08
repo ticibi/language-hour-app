@@ -22,7 +22,7 @@ def render_html(file: str):
 def delete_row(db):
     st.write('Delete Row By ID')
     cols = st.columns([1, 1])
-    id = cols[0].number_input('Row ID', step=1)
+    id = cols[0].number_input('ID', step=1)
     cls = cols[1].selectbox('Table', options=models.__models__)
     if st.button('Delete Row'):
         delete_row_by_id(db, models.hash_table[cls], int(id))
