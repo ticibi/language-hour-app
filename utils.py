@@ -10,6 +10,7 @@ from datetime import date
 from sqlalchemy import func
 from models import LanguageHour, Score
 import calendar
+from db import session
 
 def language_hour_history_to_string(history):
     output_string = ''
@@ -20,18 +21,20 @@ def language_hour_history_to_string(history):
 def get_user_monthly_hours(db, user_id):
     current_month = date.today().month
     current_year = date.today().year
-    total_hours = db.query(func.sum(LanguageHour.hours)).\
-        filter(LanguageHour.user_id == user_id).\
-        filter(func.extract('month', LanguageHour.date) == current_month).\
-        filter(func.extract('year', LanguageHour.date) == current_year).scalar() or 0
+    with session(db) as db:
+        total_hours = db.query(func.sum(LanguageHour.hours)).\
+            filter(LanguageHour.user_id == user_id).\
+            filter(func.extract('month', LanguageHour.date) == current_month).\
+            filter(func.extract('year', LanguageHour.date) == current_year).scalar() or 0
     return total_hours
 
 def get_user_monthly_hours_required(db, user_id):
-    result = db.query(Score).filter(Score.user_id == user_id).first()
-    if not result:
-        return 0
-    l = result.listening
-    r = result.reading
+    l = None
+    r = None
+    with session(db) as db:
+        result = db.query(Score).filter(Score.user_id == user_id).first()
+        l = result.listening
+        r = result.reading
 
     if l in ['0', '0+', '1', '1+'] and r in ['0', '0+', '1', '1+']:
         return 12

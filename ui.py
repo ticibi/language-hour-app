@@ -1,7 +1,7 @@
 from streamlit_option_menu import option_menu
 import streamlit as st
 from auth import authenticate_user, hash_password
-from db import get_user, commit_or_rollback
+from db import get_user, commit_or_rollback, session
 from utils import dot_dict, get_user_monthly_hours, get_user_monthly_hours_required, create_pdf, language_hour_history_to_string
 from comps import submit_entry, download_file, download_to_excel, upload_pdf, delete_row, create_entity_form, display_entities, delete_entities, reset_entity_id, upload_language_hours
 from models import LanguageHour, User, Group, File, Score, Course
@@ -12,6 +12,9 @@ from sqlalchemy import extract
 from load import get_user_models
 
 def home(db):
+    scores = None
+    hours = None
+    history = None
     columns = st.columns([1, 3, 1])
     if not st.session_state.authenticated:
         with columns[1]:
@@ -25,10 +28,11 @@ def home(db):
             cols = st.columns([1, 1, 2])
             file = download_to_excel(db, LanguageHour, st.session_state.current_user.id)
             cols[0].download_button(label='Download History (Excel)', data=file, file_name='language_hours.xlsx')
-            scores = db.query(Score).filter(Score.user_id == st.session_state.current_user.id).first()
-            hours = get_user_monthly_hours(db, st.session_state.current_user.id)
-            current_month = datetime.now().month
-            history = db.query(LanguageHour).filter(LanguageHour.user_id == st.session_state.current_user.id, extract('month', LanguageHour.date) == current_month).all()
+            with session(db) as db:
+                scores = db.query(Score).filter(Score.user_id == st.session_state.current_user.id).first()
+                hours = get_user_monthly_hours(db, st.session_state.current_user.id)
+                current_month = datetime.now().month
+                history = db.query(LanguageHour).filter(LanguageHour.user_id == st.session_state.current_user.id, extract('month', LanguageHour.date) == current_month).all()
             if scores and hours and history:
                 name = st.session_state.current_user.name.split(' ')
                 record = language_hour_history_to_string(history)
