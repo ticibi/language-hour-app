@@ -1,10 +1,7 @@
 import streamlit as st
 import pandas as pd
-from excel_utils import upload_excel
 from db import reset_autoincrement, delete_row_by_id
-from models import Group, File, LanguageHour
-import models
-from config import MODALITIES
+from models import MODELS, TABLE, File, LanguageHour
 from utils import to_excel
 
 def download_file(db):
@@ -14,18 +11,13 @@ def download_file(db):
         if file_id:
             pass
 
-def render_html(file: str):
-    with open(f'components/{file}.html', 'r') as f:
-        html = f.read()
-        st.markdown(html, unsafe_allow_html=True)
-
 def delete_row(db):
     st.write('Delete Row By ID')
     cols = st.columns([1, 1])
     id = cols[0].number_input('ID', step=1)
-    cls = cols[1].selectbox('Table', options=models.__models__)
+    cls = cols[1].selectbox('Table', options=MODELS)
     if st.button('Delete Row'):
-        delete_row_by_id(db, models.hash_table[cls], int(id))
+        delete_row_by_id(db, TABLE[cls], int(id))
 
 def delete_entities(db, cls):
     if st.button(f'Delete {cls.__tablename__}'):
@@ -44,7 +36,7 @@ def display_entities(db, cls, user_id=None, exclude=[]):
     df = pd.concat(data)
     if exclude:
         df = df.drop(columns=exclude)
-    st.write(df)
+    st.dataframe(df, use_container_width=True)
 
 def create_entity_form(db, cls, exclude=['id']):
     with st.form(f'create_{cls.__name__}_form'):
@@ -65,6 +57,31 @@ def create_entity_form(db, cls, exclude=['id']):
 def reset_entity_id(db, cls):
     if st.button(f'Reset {cls.__tablename__}'):
         reset_autoincrement(cls.__tablename__)
+
+def read_excel(file, user_id):
+    '''convert lang hour excel sheet to a list'''
+    df = pd.read_excel(file, engine='openpyxl')
+    language_hours = []
+    for _, row in df.iterrows():
+        language_hour = LanguageHour(
+            user_id=user_id,
+            date=row['Date'],
+            hours=row['Hours'],
+            description=row['Description'],
+            modalities=row['Modality'],
+        )
+        language_hours.append(language_hour)
+    return language_hours
+
+def upload_excel(session, user_id):
+    with st.expander('Language Hour Upload', expanded=True):
+        file = st.file_uploader('Upload an excel file here to populate history', type=['xlsx'])
+        if file:
+            language_hours = read_excel(file, user_id)
+            for x in language_hours:
+                session.add(x)
+            session.commit()
+            st.success('added hours!')
 
 def upload_language_hours(db, user_id):
     upload_excel(db, user_id)
@@ -87,3 +104,8 @@ def download_to_excel(db, cls, user_id: int):
         return
     df = pd.concat([lh.to_dataframe() for lh in language_hours], ignore_index=True)
     return to_excel(df)
+
+def render_html(file: str):
+    with open(f'components/{file}.html', 'r') as f:
+        html = f.read()
+        st.markdown(html, unsafe_allow_html=True)

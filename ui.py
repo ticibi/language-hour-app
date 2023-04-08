@@ -9,8 +9,7 @@ from config import MODALITIES
 from datetime import date, datetime
 import calendar
 from sqlalchemy import extract
-
-global nav_bar
+from load import get_user_models
 
 def home(db):
     columns = st.columns([1, 3, 1])
@@ -42,8 +41,8 @@ def home(db):
                     'Reading': scores.reading,
                     'Maintenance Record': record,
                 }
-            pdf = create_pdf(data_fields)
-            cols[1].download_button(label='Create 623A', data=pdf, file_name=f'623A_DATE_LASTNAME.pdf')
+                pdf = create_pdf(data_fields)
+                cols[1].download_button(label='Create 623A', data=pdf, file_name=f'623A_DATE_LASTNAME.pdf')
             display_entities(db, LanguageHour, user_id=st.session_state.current_user.id, exclude=['id', 'user_id'])
 
 def admin(db):
@@ -105,7 +104,6 @@ def sidebar(db):
                 st.sidebar.warning('You must log in to access this site.')
 
 def navbar(db):
-    global nav_bar
     nav_bar = option_menu(
         'Language Training Management',
         ['Login','Home', 'Submit Hour', 'Admin'],
@@ -175,16 +173,6 @@ def submit_hour(db):
 
 def login(db):
     columns = st.columns([1, 1, 1])
-    ## display MyAccount view
-    #if st.session_state.authenticated and st.session_state.logged_in:
-    #    with columns[1]:
-    #        container = st.empty()
-    #        with container:
-    #            if st.button('Logout'):
-    #                #initialize_session_state_variables()
-    #                container.empty()
-    #                login(db)
-
     # display Login view
     if not st.session_state.authenticated:
         with columns[1]:
@@ -197,11 +185,15 @@ def login(db):
                 if form.form_submit_button('Login'):
                     if username and password:
                         hashed_password = hash_password(password)
-                        user = get_user(db, username)
-                        user_dict = dot_dict(user.to_dict())
-                        if authenticate_user(user_dict, username, password, hashed_password):
-                            container.empty()
-                            st.success('Logged in!')
+                        if not st.session_state.current_user:
+                            user = get_user(db, username)
+                            user_dict = dot_dict(user.to_dict())
+                            if authenticate_user(user_dict, username, password, hashed_password):
+                                with st.spinner('Loading...'):
+                                    user_data = get_user_models(db, st.session_state.current_user.id)
+                                    st.session_state.current_user_data = user_data
+                                container.empty()
+                                st.success('Logged in!')
                     else:
                         st.warning('Please enter username and password.')
                         return

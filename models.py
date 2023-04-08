@@ -5,7 +5,7 @@ from extensions import Base
 import json
 import pandas as pd
 
-__models__ = ['User', 'Group', 'Course', 'LanguageHour', 'Score', 'File', 'Log', 'Message']
+MODELS = ['User', 'Group', 'Course', 'LanguageHour', 'Score', 'File', 'Log', 'Message']
 
 class BaseModel:
     def __repr__(self):
@@ -116,7 +116,7 @@ class Message(Base, BaseModel):
     content = Column(String(255))
     timestamp = Column(DateTime, default=datetime.utcnow)
 
-hash_table = {
+TABLE = {
     'User': User,
     'Group': Group,
     'Course': Course,
