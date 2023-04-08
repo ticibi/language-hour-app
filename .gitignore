@@ -7,6 +7,9 @@ ENV/
 env.bak/
 venv.bak/
 /views
+/components
+/static
+old_app.py
 
 # 
 .streamlit/secrets.toml

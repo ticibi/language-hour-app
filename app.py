@@ -2,7 +2,7 @@ import streamlit as st
 from utils import initialize_session_state_variables
 from config import SESSION_VARIABLES
 from db import create_db
-from ui import login, navbar, sidebar
+from ui import navbar
 
 st.set_page_config(
     page_title="Language Training Management",
