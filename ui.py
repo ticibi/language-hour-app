@@ -92,17 +92,29 @@ def navbar(db):
         orientation='horizontal',
         menu_icon='diamond',
     )
-    match nav_bar:
-        case 'Login':
-            login(db)
-        case 'Home':
-            home(db)
-        case 'Admin':
-            admin(db)
-        case 'Submit Hour':
-            submit_hour(db)
-        case default:
-            pass
+    
+    if nav_bar == 'Login':
+        login(db)
+    elif nav_bar == 'Home':
+        home(db)
+    elif nav_bar == 'Admin':
+        admin(db)
+    elif nav_bar == 'Submit Hour':
+        submit_hour(db)
+    else:
+        home(db)
+
+    #match nav_bar:
+    #    case 'Login':
+    #        login(db)
+    #    case 'Home':
+    #        home(db)
+    #    case 'Admin':
+    #        admin(db)
+    #    case 'Submit Hour':
+    #        submit_hour(db)
+    #    case default:
+    #        pass
 
 def submit_hour(db):
     columns = st.columns([1, 3, 1])
