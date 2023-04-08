@@ -11,6 +11,39 @@ from sqlalchemy import func
 from models import LanguageHour, Score
 import calendar
 from db import session
+from datetime import datetime
+
+class dot_dict(dict):
+    def __getattr__(self, name):
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError(name)
+
+    def __setattr__(self, name, value):
+        self[name] = value
+
+    def __delattr__(self, name):
+        del self[name]
+
+    def __getstate__(self):
+        return self.copy()
+
+    def __setstate__(self, state):
+        self.update(state)
+
+    def __reduce__(self):
+        items = tuple(self.items())
+        inst_dict = vars(self).copy()
+        inst_dict.pop('__dict__', None)
+        inst_dict.pop('__weakref__', None)
+        return self.__class__, (items,), inst_dict
+
+    def __repr__(self):
+        return f"dot_dict({super().__repr__()})"
+    
+    def to_dict(self):
+        return {k: v for k, v in self.items() if k != "_sa_instance_state"}
 
 def language_hour_history_to_string(history):
     output_string = ''
@@ -18,24 +51,23 @@ def language_hour_history_to_string(history):
         output_string += f'{str(row.date.day)} {str(calendar.month_abbr[int(row.date.month)])}' + ' - ' + str(row.hours) + ' hrs - ' + str(row.description) + '\n'
     return output_string
 
-def get_user_monthly_hours(db, user_id):
-    current_month = date.today().month
-    current_year = date.today().year
-    with session(db) as db:
-        total_hours = db.query(func.sum(LanguageHour.hours)).\
-            filter(LanguageHour.user_id == user_id).\
-            filter(func.extract('month', LanguageHour.date) == current_month).\
-            filter(func.extract('year', LanguageHour.date) == current_year).scalar() or 0
+def filter_monthly_hours(data, month, year):
+    filtered_data = []
+    for item in data:
+        date = datetime.strptime(str(item.date), '%Y-%m-%d').date()
+        if date.month == month and date.year == year:
+            filtered_data.append(item)
+    return filtered_data
+
+def calculate_total_hours(filtered_data):
+    total_hours = 0
+    for data in filtered_data:
+        total_hours += data.hours
     return total_hours
 
-def get_user_monthly_hours_required(db, user_id):
-    l = None
-    r = None
-    with session(db) as db:
-        result = db.query(Score).filter(Score.user_id == user_id).first()
-        l = result.listening
-        r = result.reading
-
+def calculate_required_hours(score_data):
+    l = score_data.listening
+    r = score_data.reading
     if l in ['0', '0+', '1', '1+'] and r in ['0', '0+', '1', '1+']:
         return 12
     elif (l == '2' and r in ['2', '2+']) or (r == '2' and l in ['2', '2+']):
@@ -46,14 +78,17 @@ def get_user_monthly_hours_required(db, user_id):
         return 4
     else:
         return 0
-    
-class dot_dict(dict):
-    def __getattr__(self, name):
-        try:
-            return self[name]
-        except KeyError:
-            raise AttributeError(name)
 
+def get_user_monthly_hours(db, user_id):
+    current_month = date.today().month
+    current_year = date.today().year
+    with session(db) as db:
+        total_hours = db.query(func.sum(LanguageHour.hours)).\
+            filter(LanguageHour.user_id == user_id).\
+            filter(func.extract('month', LanguageHour.date) == current_month).\
+            filter(func.extract('year', LanguageHour.date) == current_year).scalar() or 0
+    return total_hours
+    
 def initialize_session_state_variables(vars=SESSION_VARIABLES):
     '''helper function to initialize streamlit session state variables'''
     for var in vars:
@@ -76,7 +111,6 @@ def timeit(func):
         print(func.__name__, "executed in", int((stop - start) * 1000), "ms")
         return output
     return wrapper
-
 
 def set_need_appearances_writer(writer: PdfWriter):
     # See 12.7.2 and 7.7.2 for more information: http://www.adobe.com/content/dam/acom/en/devnet/acrobat/pdfs/PDF32000_2008.pdf

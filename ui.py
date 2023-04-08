@@ -1,15 +1,14 @@
 from streamlit_option_menu import option_menu
 import streamlit as st
 from auth import authenticate_user, hash_password
-from db import get_user, commit_or_rollback, session
-from utils import dot_dict, get_user_monthly_hours, get_user_monthly_hours_required, create_pdf, language_hour_history_to_string
+from db import get_user, commit_or_rollback
+from utils import calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, get_user_monthly_hours, create_pdf, language_hour_history_to_string
 from comps import submit_entry, download_file, download_to_excel, upload_pdf, delete_row, create_entity_form, display_entities, delete_entities, reset_entity_id, upload_language_hours
 from models import LanguageHour, User, Group, File, Score, Course
 from config import MODALITIES
-from datetime import date, datetime
+from datetime import date
 import calendar
-from sqlalchemy import extract
-from load import get_user_models
+from load import load_user_models
 
 def home(db):
     scores = None
@@ -28,25 +27,34 @@ def home(db):
             cols = st.columns([1, 1, 2])
             file = download_to_excel(db, LanguageHour, st.session_state.current_user.id)
             cols[0].download_button(label='Download History (Excel)', data=file, file_name='language_hours.xlsx')
-            with session(db) as db:
-                scores = db.query(Score).filter(Score.user_id == st.session_state.current_user.id).first()
-                hours = get_user_monthly_hours(db, st.session_state.current_user.id)
-                current_month = datetime.now().month
-                history = db.query(LanguageHour).filter(LanguageHour.user_id == st.session_state.current_user.id, extract('month', LanguageHour.date) == current_month).all()
-            if scores and hours and history:
+
+            # query database for data
+            hours = get_user_monthly_hours(db, st.session_state.current_user.id)
+            scores = st.session_state.current_user_data.Score[0]
+            history = st.session_state.current_user_data.LanguageHour
+
+
+            month = date.today().month
+            year = date.today().year
+
+            history_this_month = filter_monthly_hours(st.session_state.current_user_data.LanguageHour, month, year)
+  
+            # fill in the pdf
+            if scores and hours and history_this_month:
                 name = st.session_state.current_user.name.split(' ')
-                record = language_hour_history_to_string(history)
+                record = language_hour_history_to_string(history_this_month)
+                formatted_date = f'{calendar.month_abbr[date.today().month]}-{date.today().year}'
                 data_fields = {
                     'Language': scores.langauge,
                     'Member Name': f'{name[2].upper()} {name[0].upper()} {name[1].upper()}',
                     'Hours Studied': hours,
-                    'Date': f'{calendar.month_abbr[date.today().month]}-{date.today().year}',
+                    'Date': formatted_date,
                     'Listening': scores.listening,
                     'Reading': scores.reading,
                     'Maintenance Record': record,
                 }
                 pdf = create_pdf(data_fields)
-                cols[1].download_button(label='Create 623A', data=pdf, file_name=f'623A_DATE_LASTNAME.pdf')
+                cols[1].download_button(label='Create 623A', data=pdf, file_name=f'623A_{formatted_date.upper()}_{name[2].upper()}.pdf')
             display_entities(db, LanguageHour, user_id=st.session_state.current_user.id, exclude=['id', 'user_id'])
 
 def admin(db):
@@ -98,14 +106,14 @@ def admin(db):
 def sidebar(db):
     with st.sidebar:
         with st.expander('Session State', expanded=True):
-            if st.session_state.current_user:
-                if st.session_state.current_user.is_admin:
-                    st.write('(Admin)')
+            #if st.session_state.current_user:
+                #if st.session_state.current_user.is_admin:
+                    #st.write('(Admin)')
                     st.write(st.session_state)
-                else:
-                    st.write(st.session_state)
-            else:
-                st.sidebar.warning('You must log in to access this site.')
+                #else:
+                    #st.write(st.session_state)
+            #else:
+            #    st.sidebar.warning('You must log in to access this site.')
 
 def navbar(db):
     nav_bar = option_menu(
@@ -148,21 +156,26 @@ def submit_hour(db):
             return
     if st.session_state.current_user:
         with columns[1]:
-            # get user data
-            total_hours = get_user_monthly_hours(db, st.session_state.current_user.id)
-            req = get_user_monthly_hours_required(db, st.session_state.current_user.id)
+            
+            # get data from session state
+            month = date.today().month
+            year = date.today().year
+
+            history_this_month = filter_monthly_hours(st.session_state.current_user_data.LanguageHour, month, year)
+            hours_this_month = calculate_total_hours(history_this_month)
+            hours_required = calculate_required_hours(st.session_state.current_user_data.Score[0])
 
             # create the submission form
             with st.form('submit_hours', clear_on_submit=True):
                 cols = st.columns([1, 1])
-                date = cols[0].date_input('Date')
-                hours = cols[1].number_input(f'Hours ({total_hours}/{req} completed)', min_value=1, step=1)
+                _date = cols[0].date_input('Date')
+                hours = cols[1].number_input(f'Hours ({hours_this_month}/{hours_required} completed)', min_value=1, step=1)
                 modalities = st.multiselect('Modalities', options=MODALITIES)
                 description = st.text_area('Description')
                 if st.form_submit_button('Submit'):
                     if description and modalities:
                         entry = LanguageHour(
-                            date=date,
+                            date=_date,
                             hours=int(hours),
                             description=description,
                             modalities=modalities,
@@ -193,7 +206,7 @@ def login(db):
                             user_dict = dot_dict(user.to_dict())
                             if authenticate_user(user_dict, username, password, hashed_password):
                                 with st.spinner('Loading...'):
-                                    user_data = get_user_models(db, st.session_state.current_user.id)
+                                    user_data = load_user_models(db, st.session_state.current_user.id)
                                     st.session_state.current_user_data = user_data
                                 container.empty()
                                 st.success('Logged in!')
