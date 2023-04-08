@@ -20,7 +20,7 @@ def get_user_monthly_hours(db, user_id):
     return total_hours
 
 def get_user_monthly_hours_required(db, user_id):
-    result = db.query(Score).filter(Score.user_id == user_id).first()
+    result = db.query(Score).filter(Score.user_id == user_id).first() or 0
     l = result.listening
     r = result.reading
 
