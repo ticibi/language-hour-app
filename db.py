@@ -5,7 +5,6 @@ import streamlit as st
 from models import User
 from contextlib import contextmanager
 
-
 @contextmanager
 def session(db):
     try:
@@ -26,11 +25,16 @@ def commit_or_rollback(db, commit: bool):
             db.rollback()
             st.warning("Changes rolled back.")
 
-def get_user(db, username: str):
-    return db.query(User).filter(User.username == username).first()
-
-def get_user_id(db, username):
-    return int(db.query(User).filter(User.username == username).first().id)
+def get_user(db, user):
+    results = None
+    with session(db) as db:
+        if isinstance(user, int):
+            results = db.query(User).filter(User.id == int(user)).first()
+        elif isinstance(user, str):
+            results = db.query(User).filter(User.username == user).first()
+        if results:
+            return results.to_dict()
+    return None
 
 def reset_autoincrement(table_name):
     with engine.connect() as conn:

@@ -1,20 +1,19 @@
 from streamlit_option_menu import option_menu
 import streamlit as st
 from auth import authenticate_user, hash_password
-from db import get_user, commit_or_rollback, session
-from utils import calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
-from comps import submit_entry, download_file, download_to_excel, upload_pdf, delete_row, create_entity_form, display_entities, delete_entities, reset_entity_id, upload_language_hours
-from models import LanguageHour, User, Group, File, Score, Course
+from db import get_user, commit_or_rollback
+from utils import dot_dict, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
+from comps import submit_entry, download_file, download_to_excel, upload_pdf, delete_row, create_entity_form, display_entities, delete_entities
+from models import LanguageHour, User, Group, File, Score, Course, Message, Log
 from config import MODALITIES
 from datetime import date
 import calendar
 from load import load_user_models
-from forms import add_user, add_group, add_score
+from forms import add_user, add_group, add_score, add_course, add_file, add_log, compose_message, upload_language_hours
+from custom import card
+import pytz
 
 def home(db):
-    scores = None
-    hours = None
-    history = None
     columns = st.columns([1, 3, 1])
     if not st.session_state.authenticated:
         with columns[1]:
@@ -42,7 +41,7 @@ def home(db):
         hours_this_month = calculate_total_hours(history_this_month)
 
         # Fill in the PDF if there is enough data
-        print('Line 45:', scores, hours_this_month, history_this_month)
+        print(scores, hours_this_month, history_this_month)
         if scores and hours_this_month and history_this_month:
             name = st.session_state.current_user.name.split(' ')
             record = language_hour_history_to_string(history_this_month)
@@ -61,7 +60,7 @@ def home(db):
 
     # Define a function to display the language hour history table
     def display_language_hours():
-        upload_language_hours(db, st.session_state.current_user.id)
+        upload_language_hours(db)
 
     # Define a function to display the entities in the LanguageHour table
     def display_language_hour_entities():
@@ -85,8 +84,7 @@ def admin(db):
             st.warning('You are not authorized to access this tab.')
             return
     with columns[1]:
-        user_id = st.number_input('User ID', value=st.session_state.current_user.id, step=1)
-        upload_language_hours(db, user_id)
+        upload_language_hours(db)
 
         with st.expander('Groups'):
             add_group(db)
@@ -101,19 +99,26 @@ def admin(db):
             display_entities(db, Score)
 
         with st.expander('Course'):
-            create_entity_form(db, Course)
+            add_course(db)
             display_entities(db, Course)
 
         with st.expander('Files'):
+            add_file(db)
             display_entities(db, File)
-            upload_pdf(db, st.session_state.current_user.id)
             download_file(db)
 
         with st.expander('LanguageHours'):
             display_entities(db, LanguageHour)
 
+        with st.expander('Messages'):
+            display_entities(db, Message)
+
+        with st.expander('Logs'):
+            display_entities(db, Log)
+
         with st.expander('Database Management'):
             delete_row(db)
+            delete_entities(db)
 
             st.write('Database changes:')
             cols = st.columns([1, 1, 1])    
@@ -124,16 +129,33 @@ def admin(db):
                 commit_or_rollback(db, commit=False)
 
 def sidebar(db):
+    if not st.session_state.logged_in:
+        st.sidebar.warning('You must log in to access this feature.')
+        return
     with st.sidebar:
-        with st.expander('Session State', expanded=True):
+        st.subheader('Message Center')
+        # Display message center
+        with st.expander('Compose Message'):
+            compose_message(db, st.session_state.current_user.id)
+
+        with st.expander('My Messages', expanded=True):
+            if st.session_state.current_user_data.Message:
+                for message in st.session_state.current_user_data.Message:
+                    sender = dot_dict(get_user(db, message.sender_id))
+                    timestamp = message.timestamp.astimezone(pytz.timezone('US/Eastern')).strftime('%m-%d-%Y')
+                    card(
+                        title=f'from: {sender.username} on {timestamp}',
+                        text=message.content,
+                    )
+            else:
+                st.write('You have no messages.')
+
+        # Display session state variables
+        with st.expander('Session State'):
             if st.session_state.current_user:
                 if st.session_state.current_user.is_admin:
                     st.write('(Admin)')
                     st.write(st.session_state)
-                else:
-                    st.write('')
-            else:
-                st.sidebar.warning('You must log in to access this site.')
 
 def navbar(db):
     nav_bar = option_menu(

@@ -3,6 +3,7 @@ import pandas as pd
 from db import reset_autoincrement, delete_row_by_id, session
 from models import MODELS, TABLE, File, LanguageHour
 from utils import to_excel
+from sqlalchemy import text
 
 
 def download_file(db):
@@ -20,10 +21,21 @@ def delete_row(db):
     if st.button('Delete Row'):
         delete_row_by_id(db, TABLE[cls], int(id))
 
-def delete_entities(db, cls):
-    if st.button(f'Delete {cls.__tablename__}'):
+def delete_entities(db):
+    cols = st.columns([1, 1])
+    class_name = cols[0].selectbox('Choose table', options=MODELS)
+    cls = TABLE[class_name]
+    
+    if st.button(f'Delete ALL {cls.__tablename__}'):
         with session(db) as db:
             db.query(cls).delete()
+            st.info(f'Deleted all {cls.__tablename__}.')
+
+            # Reset auto-increment value to 1
+            db.execute(text(f"ALTER TABLE {cls.__tablename__} AUTO_INCREMENT = 1"))
+
+            # Inform the user that the table has been deleted
+            st.info(f'Auto-increment for {cls.__tablename__} has been reset.')
         
 def display_entities(db, cls, user_id=None, exclude=[]):
     if user_id:

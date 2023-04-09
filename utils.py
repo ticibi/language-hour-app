@@ -8,7 +8,7 @@ import PyPDF2.generic as pdfgen
 from config import SESSION_VARIABLES
 from datetime import date
 from sqlalchemy import func
-from models import LanguageHour, Score
+from models import LanguageHour, Message
 import calendar
 from db import session
 from datetime import datetime
@@ -84,6 +84,21 @@ def initialize_session_state_variables(vars=SESSION_VARIABLES):
     for var in vars:
         if var not in st.session_state:
             st.session_state[var] = None
+
+def read_excel(file, user_id):
+    '''convert lang hour excel sheet to a list'''
+    df = pd.read_excel(file, engine='openpyxl')
+    language_hours = []
+    for _, row in df.iterrows():
+        language_hour = LanguageHour(
+            user_id=user_id,
+            date=row['Date'],
+            hours=row['Hours'],
+            description=row['Description'],
+            modalities=row['Modality'],
+        )
+        language_hours.append(language_hour)
+    return language_hours
 
 def to_excel(df):
     '''convert dataframe into downloadable excel file'''
