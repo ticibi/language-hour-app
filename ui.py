@@ -26,6 +26,8 @@ def home(db):
 
         # Download the language hour history as an Excel file
         file = download_to_excel(db, LanguageHour, st.session_state.current_user.id)
+        if not file:
+            return
         cols[0].download_button(label='Download History (Excel)', data=file, file_name='language_hours.xlsx')
 
         # Query the database for data
@@ -135,18 +137,20 @@ def sidebar(db):
     with st.sidebar:
         st.subheader('Message Center')
         # Display message center
-        with st.expander('Compose Message'):
+        with st.expander('Compose Message 📝'):
             compose_message(db, st.session_state.current_user.id)
 
-        with st.expander('My Messages', expanded=True):
+        with st.expander('My Messages 📬', expanded=True):
             if st.session_state.current_user_data.Message:
                 for message in st.session_state.current_user_data.Message:
-                    sender = dot_dict(get_user(db, message.sender_id))
-                    timestamp = message.timestamp.astimezone(pytz.timezone('US/Eastern')).strftime('%m-%d-%Y')
-                    card(
-                        title=f'from: {sender.username} on {timestamp}',
-                        text=message.content,
-                    )
+                    sender = get_user(db, message.sender_id)
+                    if sender:
+                        sender = dot_dict(sender)
+                        timestamp = message.timestamp.astimezone(pytz.timezone('US/Eastern')).strftime('%m-%d-%Y')
+                        card(
+                            title=f'from: {sender.username} on {timestamp}',
+                            text=message.content,
+                        )
             else:
                 st.write('You have no messages.')
 
