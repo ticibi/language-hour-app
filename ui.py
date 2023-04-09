@@ -129,6 +129,8 @@ def admin(db):
             if cols[1].button("Discard changes"):
                 commit_or_rollback(db, commit=False)
 
+            
+
 def sidebar(db):
     if not st.session_state.logged_in:
         st.sidebar.warning('You must log in to access this feature.')

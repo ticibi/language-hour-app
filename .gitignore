@@ -9,7 +9,8 @@ venv.bak/
 /views
 /components
 /archive
-
+alembic.ini
+/alembic
 # 
 .streamlit/secrets.toml
 .streamlit/secret.json

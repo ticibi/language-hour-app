@@ -5,6 +5,7 @@ from models import User, Group, LanguageHour, Course, File, Score, Log, Message
 from utils import read_excel, dot_dict
 from datetime import datetime
 
+
 def add_user(db):
     # Declare the form
     with st.form('add_user'):
@@ -151,6 +152,30 @@ def add_log(db, user_id, message):
     with session(db) as db:
         db.add(log)
 
+def add_file(db):
+    # Create the file upload form
+    st.write('Upload a file')
+    file = st.file_uploader('Choose a file', type=['txt', 'pdf', 'png', 'jpg', 'jpeg'])
+
+    if file is not None:
+        # Get the file contents
+        file_contents = file.read()
+
+        # Add the file record to the database
+        new_file = File(
+            user_id=st.session_state.current_user.id,
+            name=file.name,
+            file=file_contents,
+        )
+        
+        # Add the file record to the database
+        with session(db) as db:
+            try:
+                session.add(new_file)
+                st.success('File uploaded successfully.')
+            except:
+                st.warning('Failed to upload file.')
+
 def compose_message(db, user_id):
     # Declare the form
     with st.form('compose_message', clear_on_submit=True):
@@ -188,30 +213,6 @@ def compose_message(db, user_id):
                 except:
                     st.warning('Failed to send message.')
         
-def add_file(db):
-    # Create the file upload form
-    st.write('Upload a file')
-    file = st.file_uploader('Choose a file', type=['txt', 'pdf', 'png', 'jpg', 'jpeg'])
-
-    if file is not None:
-        # Get the file contents
-        file_contents = file.read()
-
-        # Add the file record to the database
-        new_file = File(
-            user_id=st.session_state.current_user.id,
-            name=file.name,
-            file=file_contents,
-        )
-        
-        # Add the file record to the database
-        with session(db) as db:
-            try:
-                session.add(new_file)
-                st.success('File uploaded successfully.')
-            except:
-                st.warning('Failed to upload file.')
-
 def upload_language_hours(db):
     with st.expander('Language Hour Upload'):
         file = st.file_uploader(':green[Upload an excel file here to populate history]', type=['xlsx'])
