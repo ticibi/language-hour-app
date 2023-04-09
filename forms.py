@@ -213,7 +213,7 @@ def upload_language_hours(db):
     with st.expander('Language Hour Upload'):
         file = st.file_uploader(':green[Upload an excel file here to populate history]', type=['xlsx'])
         cols = st.columns([1, 3])
-        user_id = cols[0].number_input('User ID', step=1)
+        user_id = cols[0].number_input('User ID', value=st.session_state.current_user.id, step=1)
         if file:
             language_hours = read_excel(file, user_id)
             with session(db) as db:
