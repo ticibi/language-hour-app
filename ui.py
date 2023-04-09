@@ -44,6 +44,8 @@ def home(db):
         #if scores and hours_this_month and history_this_month:
         name = st.session_state.current_user.name.split(' ')
         record = language_hour_history_to_string(history_this_month)
+        if not record:
+            st.info('You have not submitted any hours yet this month.')
         formatted_date = f'{calendar.month_abbr[date.today().month]}-{date.today().year}'
         data_fields = {
             'Language': scores.langauge,
