@@ -26,9 +26,7 @@ def home(db):
 
         # Download the language hour history as an Excel file
         file = download_to_excel(db, LanguageHour, st.session_state.current_user.id)
-        if not file:
-            return
-        cols[0].download_button(label='Download History (Excel)', data=file, file_name='language_hours.xlsx')
+        cols[0].download_button(label='Download Excel', data=file, file_name='language_hours.xlsx')
 
         # Query the database for data
         history = st.session_state.current_user_data.LanguageHour
@@ -43,22 +41,21 @@ def home(db):
         hours_this_month = calculate_total_hours(history_this_month)
 
         # Fill in the PDF if there is enough data
-        print(scores, hours_this_month, history_this_month)
-        if scores and hours_this_month and history_this_month:
-            name = st.session_state.current_user.name.split(' ')
-            record = language_hour_history_to_string(history_this_month)
-            formatted_date = f'{calendar.month_abbr[date.today().month]}-{date.today().year}'
-            data_fields = {
-                'Language': scores.langauge,
-                'Member Name': f'{name[2].upper()} {name[0].upper()} {name[1].upper()}',
-                'Hours Studied': hours_this_month,
-                'Date': formatted_date,
-                'Listening': scores.listening,
-                'Reading': scores.reading,
-                'Maintenance Record': record,
-            }
-            pdf = create_pdf(data_fields)
-            cols[1].download_button(label='Create 623A', data=pdf, file_name=f'623A_{formatted_date.upper()}_{name[2].upper()}.pdf')
+        #if scores and hours_this_month and history_this_month:
+        name = st.session_state.current_user.name.split(' ')
+        record = language_hour_history_to_string(history_this_month)
+        formatted_date = f'{calendar.month_abbr[date.today().month]}-{date.today().year}'
+        data_fields = {
+            'Language': scores.langauge,
+            'Member Name': f'{name[2].upper()} {name[0].upper()} {name[1].upper()}',
+            'Hours Studied': hours_this_month,
+            'Date': formatted_date,
+            'Listening': scores.listening,
+            'Reading': scores.reading,
+            'Maintenance Record': record,
+        }
+        pdf = create_pdf(data_fields)
+        cols[1].download_button(label='Create 623A', data=pdf, file_name=f'623A_{formatted_date.upper()}_{name[2].upper()}.pdf')
 
     # Define a function to display the language hour history table
     def display_language_hours():
