@@ -159,6 +159,9 @@ def compose_message(db, user_id):
         recipient = st.text_input('Recipient Username')
         content = st.text_area('Message Content', max_chars=250)
         if st.form_submit_button('Send'):
+            if not recipient:
+                st.warning('You must specify a recipient.')
+                return
 
             # Check if recipient is valid and get recipient ID
             user = dot_dict(get_user(db, recipient))
