@@ -17,6 +17,11 @@ from components.card import card
 
 
 def test_zone(db):
+    columns = st.columns([1, 3, 1])
+    if not st.session_state.authenticated or not st.session_state.current_user:
+        with columns[1]:
+            st.warning('You must log in to access this site.')
+            return
     if not st.session_state.current_user.is_admin:
         st.warning('You are not authorzied to access the test zone.')
         return

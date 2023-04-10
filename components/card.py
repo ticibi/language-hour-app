@@ -1,6 +1,7 @@
 import streamlit as st
 
 def card(title, text):
+    # Style the card
     st.markdown(
         """
         <style>
@@ -30,6 +31,7 @@ def card(title, text):
         ,
         unsafe_allow_html=True
     )
+    # Html the card
     st.markdown(
         f"""
         <div class="card">
@@ -40,3 +42,6 @@ def card(title, text):
         ,
         unsafe_allow_html=True
     )
+
+
+
