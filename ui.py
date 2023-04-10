@@ -152,11 +152,7 @@ def sidebar(db):
         st.subheader('Message Center')
         # Display message center
         with st.expander('Compose Message 📝'):
-            try:
-                compose_message(db, st.session_state.current_user.id)
-                add_log(db, st.session_state.current_user.id, 'sent a message')
-            except:
-                return
+            compose_message(db, st.session_state.current_user.id)
 
         with st.expander('My Messages 📬', expanded=True):
             if st.session_state.current_user_data.Message:
