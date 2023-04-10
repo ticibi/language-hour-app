@@ -187,14 +187,13 @@ def compose_message(db, user_id):
             if not recipient:
                 st.warning('You must specify a recipient.')
                 return
+            if not content:
+                st.warning('Message cannot not be blank.')
 
             # Check if recipient is valid and get recipient ID
             user = dot_dict(get_user(db, recipient))
             if not user:
                 st.warning('Could not find recipient.')
-                return
-            if not content:
-                st.warning('You cannot send a blank message.')
                 return
 
             # Create the database model
