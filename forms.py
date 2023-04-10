@@ -4,6 +4,7 @@ from db import session, get_user
 from models import User, Group, LanguageHour, Course, File, Score, Log, Message
 from utils import read_excel, dot_dict
 from datetime import datetime
+import pytz
 
 
 def add_user(db):
@@ -89,11 +90,11 @@ def add_score(db):
         date = st.date_input('Date')
         if st.form_submit_button('Submit'):
 
-            user_id = get_user_id(db, username)
+            user_id = get_user(db, username)
             # Create the database model
             score = Score(
-                user_id=user_id,
-                language=language,
+                user_id=username,
+                langauge=language,
                 dicode=dicode,
                 listening=listening,
                 reading=reading,
@@ -123,7 +124,7 @@ def add_course(db):
         end_date = st.date_input('End Date')
         if st.form_submit_button('Submit'):
 
-            user_id = get_user_id(db, username)
+            user_id = get_user(db, username)
             # Create the database model
             course = Course(
                 user_id=user_id,
@@ -143,7 +144,7 @@ def add_course(db):
                     st.warning('Failed to add course.')
 
 def add_log(db, user_id, message):
-    now = datetime.utcnow()
+    now = datetime.now(pytz.timezone("America/New_York"))
     log = Log(
         user_id=user_id,
         message=message,

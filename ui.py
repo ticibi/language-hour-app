@@ -129,8 +129,6 @@ def admin(db):
             if cols[1].button("Discard changes"):
                 commit_or_rollback(db, commit=False)
 
-            
-
 def sidebar(db):
     if not st.session_state.logged_in:
         st.sidebar.warning('You must log in to access this feature.')
@@ -139,7 +137,12 @@ def sidebar(db):
         st.subheader('Message Center')
         # Display message center
         with st.expander('Compose Message 📝'):
-            compose_message(db, st.session_state.current_user.id)
+            try:
+                compose_message(db, st.session_state.current_user.id)
+            except:
+                return
+            finally:
+                add_log(db, st.session_state.current_user.id, f'user_id:{st.session_state.current_user.id} sent a message.')
 
         with st.expander('My Messages 📬', expanded=True):
             if st.session_state.current_user_data.Message:
@@ -231,6 +234,7 @@ def submit_hour(db):
                         submit_entry(db, entry)
                         st.balloons()
                         st.success(f'{hours} language hours submitted!')
+                        add_log(db, st.session_state.current_user.id, f'user_id:{st.session_state.current_user.id} logged in.')
                     else:
                         st.warning('You must fill out every field.')
 
@@ -257,6 +261,7 @@ def login(db):
                                 st.session_state.current_user_data = user_data
                             container.empty()
                             st.success('Logged in!')
+                            add_log(db, st.session_state.current_user.id, f'{username} logged in.')
                     else:
                         st.warning('Please enter username and password.')
                         return

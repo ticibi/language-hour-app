@@ -25,8 +25,10 @@ def commit_or_rollback(db, commit: bool):
             db.rollback()
             st.warning("Changes rolled back.")
 
-def get_user(db, user):
-    results = None
+def get_user(db, user) -> dict:
+    '''provide either username string or user_id int and
+    return the user model object as a dict'''
+    results = {}
     with session(db) as db:
         if isinstance(user, int):
             results = db.query(User).filter(User.id == int(user)).first()
@@ -34,7 +36,7 @@ def get_user(db, user):
             results = db.query(User).filter(User.username == user).first()
         if results:
             return results.to_dict()
-    return None
+    return {}
 
 def reset_autoincrement(table_name):
     with engine.connect() as conn:
@@ -82,7 +84,7 @@ def create_db():
         return None
 
 @st.cache_resource
-def clear_db():
+def clear_db() -> bool:
     try:
         Base.metadata.drop_all(engine)
         return True
