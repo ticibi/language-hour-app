@@ -2,31 +2,34 @@ import streamlit as st
 import pandas as pd
 from db import reset_autoincrement, delete_row_by_id, session
 from models import MODELS, TABLE, File, LanguageHour
-from utils import to_excel
+from utils import to_excel, spacer
 from sqlalchemy import text
 
 
 def download_file(db):
     cols = st.columns([1, 2])
-    file_id = cols[1].number_input('File ID', step=1)
-    if cols[0].button('Download File by ID'):
+    file_id = cols[0].number_input('Download file by ID', step=1)
+    spacer(cols[1], 2)
+    if cols[1].button('Download'):
         if file_id:
             pass
 
 def delete_row(db):
-    st.write('Delete Row By ID')
-    cols = st.columns([1, 1])
+    st.write('Delete row by ID')
+    cols = st.columns([1, 1, 1])
     id = cols[0].number_input('ID', step=1)
-    cls = cols[1].selectbox('Table', options=MODELS)
-    if st.button('Delete Row'):
+    cls = cols[1].selectbox('Table', index=len(MODELS)-1, options=MODELS)
+    spacer(cols[2], len=2)
+    if cols[2].button('Delete Row'):
         delete_row_by_id(db, TABLE[cls], int(id))
 
 def delete_entities(db):
-    cols = st.columns([1, 1])
-    class_name = cols[0].selectbox('Choose table', options=MODELS)
+    cols = st.columns([2, 1])
+    class_name = cols[0].selectbox('Choose table:', index=len(MODELS)-1, options=MODELS)
     cls = TABLE[class_name]
     
-    if st.button(f'Delete ALL {cls.__tablename__}'):
+    spacer(cols[1], len=2)
+    if cols[1].button(f'Delete ALL {cls.__tablename__}'):
         with session(db) as db:
             db.query(cls).delete()
             st.info(f'Deleted all {cls.__tablename__}.')
@@ -75,7 +78,7 @@ def read_excel(file, user_id):
     return language_hours
 
 def upload_excel(db, user_id):
-    with st.expander('Language Hour Upload', expanded=True):
+    with st.expander('Upload language hours', expanded=True):
         file = st.file_uploader(':green[Upload an excel file here to populate history]', type=['xlsx'])
         if file:
             language_hours = read_excel(file, user_id)
@@ -83,9 +86,6 @@ def upload_excel(db, user_id):
                 for x in language_hours:
                     db.add(x)
             st.success('added hours!')
-
-def upload_language_hours(db, user_id):
-    upload_excel(db, user_id)
 
 def upload_pdf(db, user_id: int):
     file = st.file_uploader('Upload PDF file', type='pdf')

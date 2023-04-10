@@ -7,10 +7,10 @@ from streamlit_option_menu import option_menu
 
 from auth import authenticate_user, hash_password
 from db import get_user, commit_or_rollback
-from utils import dot_dict, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
+from utils import divider, spacer, dot_dict, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
 from comps import submit_entry, download_file, download_to_excel, delete_row, display_entities, delete_entities
 from models import LanguageHour, User, Group, File, Score, Course, Message, Log
-from config import MODALITIES
+from config import MODALITIES, DATABASES
 from load import load_user_models
 from forms import pie_chart, bar_graph, add_user, add_group, add_score, add_course, add_file, add_log, compose_message, upload_language_hours
 from components.card import card
@@ -53,7 +53,7 @@ def home(db):
     columns = st.columns([1, 3, 1])
     if not access_warning(columns):
         return
-        
+    
     def display_language_hour_history():
         # Create columns for the table
         cols = st.columns([1, 1, 2])
@@ -137,6 +137,7 @@ def admin(db):
         with st.expander('Files'):
             add_file(db)
             display_entities(db, File)
+            divider()
             download_file(db)
 
         with st.expander('LanguageHours'):
@@ -149,11 +150,21 @@ def admin(db):
             display_entities(db, Log)
 
         with st.expander('Database Management'):
+            cols = st.columns([2, 1])  
+            cols[0].selectbox('Select database connection:', options=DATABASES)
+            spacer(cols[1], len=2)
+            if cols[1].button('Select'):
+                pass
+
+            divider()
             delete_row(db)
+
+            divider()
             delete_entities(db)
 
-            st.write('Database changes:')
-            cols = st.columns([1, 1, 1])    
+            divider()
+            st.write('Database changes:')   
+            cols = st.columns([1, 1, 1])
             if cols[0].button("Save changes"):
                 commit_or_rollback(db, commit=True)
 
@@ -168,7 +179,7 @@ def sidebar(db):
         st.subheader('Message Center')
         # Display message center
         with st.expander('Compose Message 📝'):
-            compose_message(db, st.session_state.current_user.id)
+            compose_message(db, st.session_state.current_user.id)   
 
         with st.expander('My Messages 📬', expanded=True):
             if st.session_state.current_user_data.Message:

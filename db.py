@@ -38,6 +38,16 @@ def get_user(db, user) -> dict:
             return results.to_dict()
     return {}
 
+def get_user_by_name(db, name):
+    '''get user model data given user.name as "First M Last"'''
+    with session(db) as db:
+        try:
+            result = db.query(User).filter(User.name == name).first()
+        except Exception as e:
+            print('failed to retrieve user: ', e)
+        return result if result else None
+
+
 def reset_autoincrement(table_name):
     with engine.connect() as conn:
         conn.execute(f"ALTER TABLE {table_name} AUTO_INCREMENT = 1")
@@ -53,7 +63,7 @@ def delete_row_by_id(db, cls, id):
 
 @st.cache_resource
 def create_db():
-    '''creates engine and returns session'''
+    '''create the database: creates engine and returns session'''
     if not database_exists(engine.url):
         try:
             create_database(engine.url)
@@ -85,9 +95,13 @@ def create_db():
 
 @st.cache_resource
 def clear_db() -> bool:
+    '''clear database: delete all tables and data inside the database'''
     try:
         Base.metadata.drop_all(engine)
         return True
     except Exception as e:
         print(f"Error dropping tables: {e}")
         return False
+    
+
+

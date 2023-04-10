@@ -32,10 +32,15 @@ class BaseModel:
 class User(Base, BaseModel):
     __tablename__ = 'users'
     id = Column(Integer, Sequence('user_id_seq'), primary_key=True)
-    name = Column(String(50))
+    name = Column(String(50)) # remove
+    # first_name = Column(String(25))
+    # last_name = Column(String(25))
+    # middle_initial = Column(String(2))
+    # fullname = Column(String(52))
     username = Column(String(50), nullable=False, unique=True)
-    password_hash = Column(String(100))
+    password_hash = Column(String(100)) # rename to "password"
     is_admin = Column(Boolean, default=False)
+    # is_dev = Column(Boolean, default=False)
     email = Column(String(50))
     group_id = Column(Integer, ForeignKey('groups.id'))
     language_hours = relationship('LanguageHour', back_populates='user')
@@ -98,7 +103,7 @@ class File(Base, BaseModel):
     id = Column(Integer, Sequence('file_id_seq'), primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'))  # Define a foreign key relationship
     name = Column(String(100))
-    file = Column(LargeBinary)
+    file = Column(LargeBinary) # rename to "content"
     user = relationship('User', back_populates='files')
 
 class Log(Base, BaseModel):
@@ -106,13 +111,16 @@ class Log(Base, BaseModel):
     id = Column(Integer, Sequence('log_id_seq'), primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'))  # Define a foreign key relationship
     message = Column(String(255))
-    date = Column(Date)
+    date = Column(Date) # remove
+    # timestamp = Column(DateTime, default=datetime.utcnow)
 
 class Message(Base, BaseModel):
     __tablename__ = 'messages'
     id = Column(Integer, Sequence('message_id_seq'), primary_key=True)
     sender_id = Column(Integer, ForeignKey('users.id'))
     recipient_id = Column(Integer, ForeignKey('users.id'))
+    # read = Column(Boolean, default=False)
+    # archived = Column(Boolean, default=False)
     content = Column(String(255))
     timestamp = Column(DateTime, default=datetime.utcnow)
 

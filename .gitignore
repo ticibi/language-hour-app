@@ -6,10 +6,16 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# folders
 /views
 /archive
-alembic.ini
 /alembic
+
+# files
+alembic.ini
+test.py
+
 # 
 .streamlit/secrets.toml
 .streamlit/secret.json

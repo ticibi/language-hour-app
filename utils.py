@@ -6,12 +6,18 @@ from PyPDF2 import PdfWriter, PdfReader
 from PyPDF2.generic import BooleanObject, NameObject, IndirectObject
 import PyPDF2.generic as pdfgen
 from config import SESSION_VARIABLES
-from datetime import date
 from sqlalchemy import func
 from models import LanguageHour, Message
 import calendar
-from db import session
 from datetime import datetime
+
+def spacer(cols, len=1):
+    for i in range(len):
+        cols.write(' ')
+    return
+
+def divider():
+    st.markdown('''---''')
 
 class dot_dict(dict):
     def __getattr__(self, name):
@@ -106,6 +112,18 @@ def to_excel(df):
     writer = pd.ExcelWriter(output, engine='openpyxl')
     df.to_excel(writer, index=False, sheet_name="MyHistory")
     return output.getvalue()
+
+
+def bulk_excel(file):
+
+    # check that the user exists in the database
+    # if the user does not exist, continue
+    # if the user exists, call read_excel then add to database
+
+    pass
+
+
+
 
 def timeit(func):
     '''time how long a function takes to execute'''

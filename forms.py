@@ -2,7 +2,7 @@ import streamlit as st
 from sqlalchemy import exists
 from db import session, get_user
 from models import User, Group, LanguageHour, Course, File, Score, Log, Message
-from utils import read_excel, dot_dict
+from utils import divider, read_excel, dot_dict
 from datetime import datetime
 import pytz
 import matplotlib.pyplot as plt
@@ -217,12 +217,17 @@ def compose_message(db, user_id):
                     st.warning('Failed to send message.')
         
 def upload_language_hours(db):
-    with st.expander('Language Hour Upload'):
+    with st.expander('Upload language hours'):
         file = st.file_uploader(':green[Upload an excel file here to populate history]', type=['xlsx'])
+        divider()
         cols = st.columns([1, 3])
         user_id = cols[0].number_input('User ID', value=st.session_state.current_user.id, step=1)
+        is_bulk = cols[0].checkbox('Bulk upload?')
         if file:
-            language_hours = read_excel(file, user_id)
+            if is_bulk:
+                pass
+            else:
+                language_hours = read_excel(file, user_id)
             with session(db) as db:
                 for x in language_hours:
                     db.add(x)

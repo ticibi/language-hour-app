@@ -5,6 +5,11 @@ DB_PASSWORD = st.secrets['DB_PASSWORD']
 HOST = st.secrets['HOST']
 PORT = st.secrets['PORT']
 DB_NAME = st.secrets['DB_NAME']
+DATABASES = [
+    st.secrets['DB_NAME'],
+    st.secrets['DB_NAME2'],
+]
+
 SESSION_VARIABLES = [
     'db', # sql database session
     'authenticated', # user authentication status
