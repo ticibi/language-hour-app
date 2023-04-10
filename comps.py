@@ -51,22 +51,6 @@ def display_entities(db, cls, user_id=None, exclude=[]):
         df = df.drop(columns=exclude)
     st.dataframe(df, use_container_width=True)
 
-def create_entity_form(db, cls, exclude=['id']):
-    with st.form(f'create_{cls.__name__}_form'):
-        st.write(f'Add {cls.__name__}')
-        for column in cls.__table__.columns:
-            if column.name not in exclude:
-                value = st.text_input(column.name)
-                setattr(cls, column.name, value)
-        if st.form_submit_button('Submit'):
-            instance = cls()
-            for column in cls.__table__.columns:
-                if column.name not in exclude:
-                    setattr(instance, column.name, getattr(cls, column.name))
-            with session(db) as db:
-                db.add(instance)
-            st.success(f'Added {cls.__name__}!')
-
 def reset_entity_id(db, cls):
     if st.button(f'Reset {cls.__tablename__}'):
         reset_autoincrement(cls.__tablename__)
@@ -126,3 +110,20 @@ def render_html(file: str):
     with open(f'components/{file}.html', 'r') as f:
         html = f.read()
         st.markdown(html, unsafe_allow_html=True)
+
+#def create_entity_form(db, cls, exclude=['id']):
+#    with st.form(f'create_{cls.__name__}_form'):
+#        st.write(f'Add {cls.__name__}')
+#        for column in cls.__table__.columns:
+#            if column.name not in exclude:
+#                value = st.text_input(column.name)
+#                setattr(cls, column.name, value)
+#        if st.form_submit_button('Submit'):
+#            instance = cls()
+#            for column in cls.__table__.columns:
+#                if column.name not in exclude:
+#                    setattr(instance, column.name, getattr(cls, column.name))
+#            with session(db) as db:
+#                db.add(instance)
+#            st.success(f'Added {cls.__name__}!')
+

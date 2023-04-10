@@ -5,7 +5,10 @@ from models import User, Group, LanguageHour, Course, File, Score, Log, Message
 from utils import read_excel, dot_dict
 from datetime import datetime
 import pytz
-
+import matplotlib.pyplot as plt
+import pandas as pd
+from config import BG_COLOR_DARK, BG_COLOR_LIGHT
+import calendar
 
 def add_user(db):
     # Declare the form
@@ -224,5 +227,37 @@ def upload_language_hours(db):
                 for x in language_hours:
                     db.add(x)
                 st.success('Language Hours uploaded to database. Click the "X" to remove the file from uploader.')
+
+def pie_chart(data):
+    # Create a pie chart of the modalities and hours
+    modalities = [d.modalities.split(' ') for d in data]
+    hours = [d.hours for d in data]
+
+    fig1, ax1 = plt.subplots()
+    ax1.pie(hours, labels=modalities, autopct="%1.1f%%", startangle=90)
+    ax1.axis("equal")
+    st.pyplot(fig1)
+
+def bar_graph(data):
+    # Create a bar graph of the month and hours
+    current_year = datetime.today().year
+    months = []
+    hours = []
+    for d in data:
+        if d.date.year == current_year:
+            months.append(calendar.month_abbr[d.date.month])
+            hours.append(d.hours)
+
+    fig2, ax2 = plt.subplots(figsize=(6, 3))
+    ax2.bar(months, hours, color=['dodgerblue'])
+    ax2.set_ylabel("Hours", color='white')
+    ax2.set_xticks(range(1, len(months)))
+
+    # Adjust the colors
+    ax2.set_facecolor(BG_COLOR_LIGHT)
+    fig2.set_facecolor(BG_COLOR_DARK)
+    ax2.tick_params(axis='both', colors='white')
+
+    st.pyplot(fig2)
 
 

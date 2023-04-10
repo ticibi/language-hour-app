@@ -1,17 +1,30 @@
-from streamlit_option_menu import option_menu
+from datetime import date
+import calendar
+import pytz
+
 import streamlit as st
+from streamlit_option_menu import option_menu
+
 from auth import authenticate_user, hash_password
 from db import get_user, commit_or_rollback
 from utils import dot_dict, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
-from comps import submit_entry, download_file, download_to_excel, upload_pdf, delete_row, create_entity_form, display_entities, delete_entities
+from comps import submit_entry, download_file, download_to_excel, delete_row, display_entities, delete_entities
 from models import LanguageHour, User, Group, File, Score, Course, Message, Log
 from config import MODALITIES
-from datetime import date
-import calendar
 from load import load_user_models
-from forms import add_user, add_group, add_score, add_course, add_file, add_log, compose_message, upload_language_hours
-from custom import card
-import pytz
+from forms import pie_chart, bar_graph, add_user, add_group, add_score, add_course, add_file, add_log, compose_message, upload_language_hours
+from components.card import card
+
+
+def test_zone(db):
+    if not st.session_state.current_user.is_admin:
+        st.warning('You are not authorzied to access the test zone.')
+        return
+    
+    data = st.session_state.current_user_data.LanguageHour
+    #pie_chart(data)
+    with st.expander('My Hours Graph', expanded=True):
+        bar_graph(data)
 
 def home(db):
     columns = st.columns([1, 3, 1])
@@ -69,6 +82,8 @@ def home(db):
 
     columns = st.columns([1, 3, 1])
     with columns[1]:
+        # if user is admin, display their respective group's users with scores
+        # button to calculate the monthly language hours rundown
         display_language_hours()
         with st.expander('Language Hour History', expanded=True):
             display_language_hour_history()
@@ -168,8 +183,8 @@ def sidebar(db):
 def navbar(db):
     nav_bar = option_menu(
         'Language Training Management',
-        ['Login','Home', 'Submit Hour', 'Admin'],
-        icons=['key', 'house', 'send', 'tools'],
+        ['Login','Home', 'Submit Hour', 'Admin', 'TESTZONE'],
+        icons=['key', 'house', 'send', 'tools', 'activity'],
         default_index=0,
         orientation='horizontal',
         menu_icon='diamond',
@@ -181,6 +196,8 @@ def navbar(db):
         home(db)
     elif nav_bar == 'Admin':
         admin(db)
+    elif nav_bar == 'TESTZONE':
+        test_zone(db)
     elif nav_bar == 'Submit Hour':
         submit_hour(db)
     else:
@@ -222,7 +239,7 @@ def submit_hour(db):
                 hours = cols[1].number_input(f'Hours ({hours_this_month}/{hours_required} completed)', min_value=1, step=1)
                 modalities = st.multiselect('Modalities', options=MODALITIES)
                 description = st.text_area('Description')
-                if st.form_submit_button('Submit'):
+                if st.form_submit_button('Submit', type='primary'):
                     if description and modalities:
                         entry = LanguageHour(
                             date=_date,

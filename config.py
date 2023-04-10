@@ -26,3 +26,6 @@ MODALITIES = [
     'Test',
 ]
 LOTTIE_URL = 'https://lottiefiles.com/41769-hello-welcome'
+
+BG_COLOR_DARK = '#0E1117'
+BG_COLOR_LIGHT = '#262730'
