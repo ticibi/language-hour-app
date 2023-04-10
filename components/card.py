@@ -44,4 +44,3 @@ def card(title, text):
     )
 
 
-

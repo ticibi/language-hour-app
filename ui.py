@@ -16,14 +16,28 @@ from forms import pie_chart, bar_graph, add_user, add_group, add_score, add_cour
 from components.card import card
 
 
+def access_warning(cols=st.columns):
+    if not st.session_state.authenticated \
+        or not st.session_state.current_user \
+        or not st.session_state.logged_in:
+        msg = 'You must log in to access this site.'
+        if not cols:
+            st.warning(msg)
+        else:
+            cols[1].warning(msg)
+        return False
+    if st.session_state.current_user.is_admin:
+        return True
+    msg2 = 'You are not authorized to access this tab.'
+    if not cols:
+        st.warning(msg2)
+    else:
+        cols[1].warning(msg2)
+    return False
+
 def test_zone(db):
     columns = st.columns([1, 3, 1])
-    if not st.session_state.authenticated or not st.session_state.current_user:
-        with columns[1]:
-            st.warning('You must log in to access this site.')
-            return
-    if not st.session_state.current_user.is_admin:
-        st.warning('You are not authorzied to access the test zone.')
+    if not access_warning(columns):
         return
     
     data = st.session_state.current_user_data.LanguageHour
@@ -96,14 +110,9 @@ def home(db):
 
 def admin(db):
     columns = st.columns([1, 3, 1])
-    if not st.session_state.authenticated or not st.session_state.current_user:
-        with columns[1]:
-            st.warning('You must log in to access this site.')
-            return
-    if not st.session_state.current_user.is_admin:
-        with columns[1]:
-            st.warning('You are not authorized to access this tab.')
-            return
+    if not access_warning(columns):
+        return
+
     with columns[1]:
         upload_language_hours(db)
 
