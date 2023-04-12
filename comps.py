@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from db import reset_autoincrement, delete_row_by_id, session
 from models import MODELS, TABLE, File, LanguageHour
-from utils import to_excel, spacer
+from utils import dot_dict, to_excel, spacer
 from sqlalchemy import text
 from db import change_database_connection, get_database_name, get_databases
 from config import DB1
@@ -35,7 +35,18 @@ def delete_row(db):
     st.write('Delete row in selected table by ID: ')
     cols = st.columns([1, 1, 1])
     id = cols[0].number_input('ID', step=1)
-    cls = cols[1].selectbox('Table', index=len(MODELS)-1, options=MODELS)
+    class_name = cols[1].selectbox('Table', index=len(MODELS)-1, options=MODELS)
+    cls = TABLE[class_name]
+    count = db.query(cls).count()
+    data = db.query(cls).filter_by(id=id).first()
+    if not data:
+        st.info('Data for this row and table does not exist.')
+        return
+    
+    data_dict = dot_dict(data.to_dict())
+    cols[0].write(f':red[Note: This action will remove:]')
+    st.dataframe(data_dict, use_container_width=True)
+
     spacer(cols[2], len=2)
     if cols[2].button('Delete Row'):
         delete_row_by_id(db, TABLE[cls], int(id))
@@ -44,6 +55,8 @@ def delete_entities(db):
     cols = st.columns([2, 1])
     class_name = cols[0].selectbox('Choose table to delete:', index=len(MODELS)-1, options=MODELS)
     cls = TABLE[class_name]
+    count = db.query(cls).count()
+    cols[0].write(f':red[Note: This action will remove {count} rows of data and is irreversable.]')
     
     spacer(cols[1], len=2)
     if cols[1].button(f'Delete ALL {cls.__tablename__}'):

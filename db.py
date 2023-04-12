@@ -25,6 +25,8 @@ def session(db):
 def connect_user_to_database(username):
     # Create an engine for the appropriate database
     user_db = get_user_database_connection_info(db1, username)
+    if not user_db:
+        return None
     user_engine = create_engine(f'{CONNECTOR}://{user_db.username}:{user_db.password}@{user_db.host}/{user_db.name}')
     Base.metadata.bind = user_engine
 
@@ -52,8 +54,10 @@ def check_username_exists(db, username):
 
 def get_user_database_connection_info(db, username):
         '''connect the user to the appropriate database'''
+        db_info = None
         data = get_db_id_by_username(db, username)
-        db_info = get_database_by_id(db, data.db_id)
+        if data:
+            db_info = get_database_by_id(db, data.db_id)
         return db_info
 
 def get_db_id_by_username(db, username):
@@ -64,6 +68,11 @@ def get_db_id_by_username(db, username):
 def get_database_by_id(db, id):
     with session(db) as db:
         result = db.query(Database).filter(Database.id==id).first()
+        return dot_dict(result.to_dict()) if result else None
+
+def get_database_by_name(db, name):
+    with session(db) as db:
+        result = db.query(Database).filter(Database.name==name).first()
         return dot_dict(result.to_dict()) if result else None
 
 def get_database_name(engine):
@@ -84,14 +93,15 @@ def get_user_by_username(db, username):
         result = _db.query(User).filter(User.username==username).first()
         return dot_dict(result.to_dict()) if result else None
 
-def get_user_by_name(db, name):
-    '''get user model data given user.name as "First M Last"'''
-    with session(db) as db:
-        try:
-            result = db.query(User).filter(User.name == name).first()
-        except Exception as e:
-            print('failed to retrieve user: ', e)
-        return result if result else None
+def get_user_by_name(db, last_name):
+    with session(db) as _db:
+        result = _db.query(User).filter(User.last_name==last_name).first()
+        return dot_dict(result.to_dict()) if result else None
+
+def get_user_by_id(db, id):
+    with session(db) as _db:
+        result = _db.query(User).filter(User.id==id).first()
+        return dot_dict(result.to_dict()) if result else None
 
 def reset_autoincrement(engine, table_name):
     with engine.connect() as conn:

@@ -6,7 +6,7 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 
 from auth import authenticate_user
-from db import get_databases, connect_user_to_database, get_database_name, get_user_by_username, commit_or_rollback
+from db import get_user_by_id, get_databases, connect_user_to_database, get_database_name, get_user_by_username, commit_or_rollback
 from utils import divider, spacer, dot_dict, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
 from comps import submit_entry, download_file, download_to_excel, delete_row, display_entities, delete_entities
 from models import LanguageHour, User, File, Score, Course, Message, Log
@@ -15,6 +15,7 @@ from load import load_user_models
 from forms import bar_graph, add_user, add_score, add_course, add_file, add_log, compose_message, upload_language_hours, add_database, add_dbconnect_user
 from components.card import card
 from extensions import db1
+import calendar
 
 
 def admin_access_warning(cols=st.columns):
@@ -57,6 +58,8 @@ def home():
         return
     
     def display_language_hour_history():
+
+        st.write('Select a month and year and download your 623A:')
         # Create columns for the table
         cols = st.columns([1, 1, 2])
 
@@ -70,22 +73,27 @@ def home():
         scores = st.session_state.current_user_data.Score
 
         # Get the current month and year
-        month = date.today().month
-        year = date.today().year
+        current_month = date.today().month
+        current_year = date.today().year
+
+        selected_month = cols[0].selectbox('Month', index=current_month, options=calendar.month_abbr)
+        selected_year = cols[1].number_input('Year', value=current_year, min_value=2021, step=1)
 
         # Filter the language hour history for the current month
-        history_this_month = filter_monthly_hours(history, month, year)
-        hours_this_month = calculate_total_hours(history_this_month)
+        month_history = filter_monthly_hours(history, list(calendar.month_abbr).index(selected_month), int(selected_year))
+        hours_this_month = calculate_total_hours(month_history)
 
         # Fill in the PDF if there is enough data
         #if scores and hours_this_month and history_this_month:
         user = st.session_state.current_user
-        record = language_hour_history_to_string(history_this_month)
+        record = language_hour_history_to_string(month_history)
         if not record:
-            st.info('You have not submitted any hours yet this month.')
-        formatted_date = f'{calendar.month_abbr[date.today().month]}-{date.today().year}'
+            st.info('You have not submitted any hours during the selected month.')
+
+        formatted_date = f'{selected_month}{selected_year}'
         if not scores:
             return
+        
         data_fields = {
             'Language': scores[0].langauge,
             'Member Name': f'{user.last_name.upper()} {user.first_name.upper()} {user.middle_initial.upper()}',
@@ -95,8 +103,11 @@ def home():
             'Reading': scores[0].reading,
             'Maintenance Record': record,
         }
+
         pdf = create_pdf(data_fields)
-        cols[1].download_button(label='Create 623A', data=pdf, file_name=f'623A_{formatted_date.upper()}_{user.last_name.upper()}.pdf')
+        spacer(cols[2], 2)
+        filename = f'623A_{formatted_date.upper()}_{user.last_name.upper()}.pdf'
+        cols[2].download_button(label='Download', data=pdf, file_name=filename)
 
     # Define a function to display the language hour history table
     def display_language_hours():
@@ -110,7 +121,11 @@ def home():
     with columns[1]:
         # if user is admin, display their respective group's users with scores
         # button to calculate the monthly language hours rundown
-        display_language_hours()
+        #display_language_hours()
+        if st.session_state.current_user.is_admin:
+            with st.expander('Monthly Rundown'):
+                pass
+
         with st.expander('Language Hour History', expanded=True):
             display_language_hour_history()
             display_language_hour_entities()
@@ -118,13 +133,14 @@ def home():
 def database_management():
     db = st.session_state.session
     with st.expander('Database Management'):
+        add_dbconnect_user(db1)
+
         cols = st.columns([2, 1])
         databases = [d.name for d in get_databases(db1)]
         cols[0].selectbox('Select database connection:', options=databases)
         spacer(cols[1], len=2)
         if cols[1].button('Select'):
             pass
-        add_dbconnect_user(db1)
 
         divider()
         delete_row(db)
@@ -192,15 +208,6 @@ def sidebar():
     if not access_warning():
         return
 
-    # Display session state variables
-    with st.sidebar.expander('Session State', expanded=True):
-        #if st.session_state.current_user:
-            #if st.session_state.current_user.is_admin:
-        st.write('(Admin)')
-        st.write(st.session_state)
-
-    return
-    
     with st.sidebar:
         st.subheader('Message Center')
         # Display message center
@@ -210,7 +217,7 @@ def sidebar():
         with st.expander('My Messages 📬', expanded=True):
             if st.session_state.current_user_data.Message:
                 for message in st.session_state.current_user_data.Message:
-                    sender = get_user(db, message.sender_id)
+                    sender = get_user_by_id(db, message.sender_id)
                     if sender:
                         sender = dot_dict(sender)
                         timestamp = message.timestamp.astimezone(pytz.timezone('US/Eastern')).strftime('%m-%d-%Y')
@@ -220,6 +227,13 @@ def sidebar():
                         )
             else:
                 st.write('You have no messages.')
+
+    # Display session state variables
+    with st.sidebar.expander('Session State', expanded=True):
+        if st.session_state.current_user:
+            if st.session_state.current_user.is_admin:
+                st.write('(Admin)')
+                st.write(st.session_state)
 
 def navbar():
     nav_bar = option_menu(
@@ -310,6 +324,9 @@ def login():
                     
                     elif username and password:
                         db = connect_user_to_database(username)
+                        if not db:
+                            st.warning('User not found.')
+                            return
                         #users = db.query(User).count()
                         #if users < 1:
                         #    user = User(

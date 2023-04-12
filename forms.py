@@ -1,10 +1,11 @@
 import streamlit as st
 from sqlalchemy import exists
-from db import session, get_user_by_username
+from db import get_database_by_name, get_databases, session, get_user_by_username
 from models import DBConnect, User, Course, File, Score, Log, Message, Database
 from utils import divider, read_excel, dot_dict
 from datetime import datetime
 import pytz
+from extensions import db1
 import matplotlib.pyplot as plt
 import pandas as pd
 from config import BG_COLOR_DARK, BG_COLOR_LIGHT
@@ -13,11 +14,14 @@ from config import HOST, PORT, DB_PASSWORD, DB_USERNAME
 
 
 def add_dbconnect_user(db):
+    databases = [d.name for d in get_databases(db)]
+    databases.insert(0, 'db_1')
+
     with st.form('dbconnect_form'):
         st.write('Add user to master db')
         cols = st.columns([1, 1, 1])
-        username = cols[0].text_input('Username')
-        db_id = cols[0].number_input('Database ID', step=1)
+        username = cols[0].text_input('Username:')
+        db_name = cols[0].text_input('Database:', value='db_1', disabled=True)
         if st.form_submit_button('Submit'):
             user_exists = db.query(exists().where(DBConnect.username==username)).scalar()
             if user_exists:
@@ -26,9 +30,10 @@ def add_dbconnect_user(db):
             with session(db) as db:
                 user = DBConnect(
                     username=username,
-                    db_id=db_id
+                    db_id=0,
                 )
                 db.add(user)
+                st.success('User added to ')
 
 def add_database(db):
     # Declare form
@@ -224,7 +229,7 @@ def compose_message(db, user_id):
                 st.warning('Message cannot not be blank.')
 
             # Check if recipient is valid and get recipient ID
-            user = dot_dict(get_user_by_username(db, recipient))
+            user = get_user_by_username(db, recipient)
             if not user:
                 st.warning('Could not find recipient.')
                 return
