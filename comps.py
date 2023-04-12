@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from db import reset_autoincrement, delete_row_by_id, session, create_session
+from db import reset_autoincrement, delete_row_by_id, session
 from models import MODELS, TABLE, File, LanguageHour
 from utils import to_excel, spacer
 from sqlalchemy import text
