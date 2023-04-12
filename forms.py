@@ -1,14 +1,14 @@
 import streamlit as st
 from sqlalchemy import exists
-from db import get_database_by_name, get_databases, session, get_user_by_username
+from db import get_all_users, upload_bulk_excel, get_databases, session, get_user_by_username
 from models import DBConnect, User, Course, File, Score, Log, Message, Database
-from utils import divider, read_excel, dot_dict
+from utils import divider, read_excel
 from datetime import datetime
 import pytz
 from extensions import db1
 import matplotlib.pyplot as plt
 import pandas as pd
-from config import BG_COLOR_DARK, BG_COLOR_LIGHT
+from config import BG_COLOR_DARK, BG_COLOR_LIGHT, DICODES
 import calendar
 from config import HOST, PORT, DB_PASSWORD, DB_USERNAME
 from auth import hash_password
@@ -118,9 +118,11 @@ def add_score(db):
         st.write('Add Score')
 
         # Create input fields
-        username = st.text_input('Username', value=st.session_state.current_user.username)
+        #username = st.text_input('Username', value=st.session_state.current_user.username)
+        users = [u.username for u in get_all_users(db)]
+        username = st.selectbox('Username', options=users)
         language = st.text_input('Language', value='Arabic')
-        dicode = st.text_input('Dicode', value='AP')
+        dicode = st.selectbox('Dicode', index=0, options=DICODES)
         listening = st.text_input('Listening Score')
         reading = st.text_input('Reading Score')
         speaking = st.text_input('Speaking score')
@@ -154,7 +156,7 @@ def add_course(db):
         st.write('Add Course')
 
         # Create input fields
-        username = st.text_input('Name')
+        username = st.text_input('Username')
         course_name = st.text_input('Course Name')
         course_code = st.text_input('Course Code')
         course_length = st.number_input('Course Length (hours)', step=1)
@@ -264,13 +266,13 @@ def upload_language_hours(db):
         is_bulk = cols[0].checkbox('Bulk upload?')
         if file:
             if is_bulk:
-                pass
+                upload_bulk_excel(db, file)
             else:
                 language_hours = read_excel(file, user_id)
-            with session(db) as db:
-                for x in language_hours:
-                    db.add(x)
-                st.success('Language Hours uploaded to database. Click the "X" to remove the file from uploader.')
+                with session(db) as db:
+                    for x in language_hours:
+                        db.add(x)
+                    st.success('Language Hours uploaded to database. Click the "X" to remove the file from uploader.')
 
 def pie_chart(data):
     # Create a pie chart of the modalities and hours

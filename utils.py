@@ -114,14 +114,6 @@ def to_excel(df):
     df.to_excel(writer, index=False, sheet_name="MyHistory")
     return output.getvalue()
 
-def bulk_excel(file):
-
-    # check that the user exists in the database
-    # if the user does not exist, continue
-    # if the user exists, call read_excel then add to database
-
-    pass
-
 def timeit(func):
     '''time how long a function takes to execute'''
     def wrapper(*args, **kwargs):

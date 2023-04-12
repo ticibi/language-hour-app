@@ -1,9 +1,9 @@
 from sqlalchemy.orm import sessionmaker
 from extensions import Base, db1
 import streamlit as st
-from models import User, DBConnect
+from models import User, DBConnect, LanguageHour
 from contextlib import contextmanager
-from sqlalchemy import create_engine, MetaData, exists
+from sqlalchemy import create_engine, MetaData, exists, and_
 from sqlalchemy.engine.url import make_url
 from config import HOST, DB_USERNAME, DB_PASSWORD, CONNECTOR
 from models import Database
@@ -88,6 +88,14 @@ def commit_or_rollback(db, commit: bool):
         else:
             db.rollback()
             st.warning("Changes rolled back.")
+
+def get_all_users(db):
+    with session(db) as db:
+        results = db.query(User).all()
+        data = []
+        for item in results:
+            data.append(dot_dict(item.to_dict()))
+        return data
 
 def get_user_by_username(db, username):
     with session(db) as _db:
@@ -180,3 +188,33 @@ def get_database_tables(engine):
 
     # get a list of all table names in the database
     return metadata.tables.keys()
+
+def upload_bulk_excel(db, file):
+    xls = pd.ExcelFile(file)
+    for sheet in xls.sheet_names:
+        df = pd.read_excel(file, sheet_name=sheet, engine='openpyxl')
+        df = df.fillna('')
+
+        # Split the sheet name at the comma
+        split_name = sheet.split(', ')
+
+        # Get the user database info
+        with session(db) as db:
+            user = db.query(User).filter(and_(User.first_name==split_name[1], User.last_name==split_name[0])).first()
+            if not user:
+                print(f'skipping {sheet}')
+                st.info(f'skipping {sheet}')
+                continue
+
+            for _, row in df.iterrows():
+                language_hour = LanguageHour(
+                    user_id=user.id,
+                    date=row['Date'],
+                    hours=row['Hours'],
+                    description=row['Description'],
+                    modalities=row['Modality'],
+                )
+                db.add(language_hour)
+        print(f'added all entries from {sheet}')
+        st.info(f'added all entries from {sheet}')
+    st.success('Finished adding all entries.')

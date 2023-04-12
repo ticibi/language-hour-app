@@ -7,7 +7,6 @@ from extensions import db1_engine, create_session
 from models import DBConnect
 from forms import add_dbconnect_user
 
-
 st.set_page_config(
     page_title="Language Training Management",
     page_icon="🌐",

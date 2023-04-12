@@ -17,7 +17,7 @@ SESSION_VARIABLES = [
     'current_user', # current authenticated user
     'debug', # debug mode state
 ]
-DICODES = ['AU', 'AP', 'AE', 'DG', 'AD', 'AV', 'PV', 'PG', 'PF',]
+DICODES = ['AP', 'AU', 'AE', 'DG', 'AD', 'AV', 'PV', 'PG', 'PF',]
 MODALITIES = [
     'Listening',
     'Reading',

@@ -59,7 +59,7 @@ def home():
     
     def display_language_hour_history():
 
-        st.write('Select a month and year and download your 623A:')
+        st.write(':blue[Select a month and year and download your 623A:]')
         # Create columns for the table
         cols = st.columns([1, 1, 2])
 
@@ -92,6 +92,7 @@ def home():
 
         formatted_date = f'{selected_month}{selected_year}'
         if not scores:
+            st.info('Your test scores cannot be found. Please contact an LTM to update your profile.')
             return
         
         data_fields = {
