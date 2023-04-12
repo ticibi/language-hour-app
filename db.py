@@ -51,13 +51,13 @@ def check_username_exists(db, username):
     with session(db) as db:
         result = db.query(exists().where(DBConnect.username==username)).scalar()
         return result
-
+    
 def get_user_database_connection_info(db, username):
         '''connect the user to the appropriate database'''
-        db_info = None
         data = get_db_id_by_username(db, username)
-        if data:
-            db_info = get_database_by_id(db, data.db_id)
+        if not data:
+            return None
+        db_info = get_database_by_id(db, data.db_id)
         return db_info
 
 def get_db_id_by_username(db, username):

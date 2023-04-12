@@ -6,6 +6,7 @@ from utils import dot_dict, to_excel, spacer
 from sqlalchemy import text
 from db import change_database_connection, get_database_name, get_databases
 from config import DB1
+from extensions import create_session
 
 
 def connect_to_database(db):
