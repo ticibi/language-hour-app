@@ -5,14 +5,14 @@ import pytz
 import streamlit as st
 from streamlit_option_menu import option_menu
 
-from auth import authenticate_user, hash_password
+from auth import authenticate_user
 from db import get_databases, connect_user_to_database, get_database_name, get_user_by_username, commit_or_rollback
 from utils import divider, spacer, dot_dict, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
 from comps import submit_entry, download_file, download_to_excel, delete_row, display_entities, delete_entities
 from models import LanguageHour, User, File, Score, Course, Message, Log
 from config import MODALITIES, ADMIN_PASSWORD, ADMIN_USERNAME
 from load import load_user_models
-from forms import pie_chart, bar_graph, add_user, add_score, add_course, add_file, add_log, compose_message, upload_language_hours, add_database, add_dbconnect_user
+from forms import bar_graph, add_user, add_score, add_course, add_file, add_log, compose_message, upload_language_hours, add_database, add_dbconnect_user
 from components.card import card
 from extensions import db1
 

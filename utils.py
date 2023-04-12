@@ -6,8 +6,7 @@ from PyPDF2 import PdfWriter, PdfReader
 from PyPDF2.generic import BooleanObject, NameObject, IndirectObject
 import PyPDF2.generic as pdfgen
 from config import SESSION_VARIABLES
-from sqlalchemy import func
-from models import LanguageHour, Message
+from models import LanguageHour
 import calendar
 from datetime import datetime
 

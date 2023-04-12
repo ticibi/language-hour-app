@@ -1,12 +1,11 @@
 import streamlit as st
 import pandas as pd
-from db import reset_autoincrement, delete_row_by_id, session
+from db import reset_autoincrement, delete_row_by_id, session, create_session
 from models import MODELS, TABLE, File, LanguageHour
 from utils import to_excel, spacer
 from sqlalchemy import text
 from db import change_database_connection, get_database_name, get_databases
 from config import DB1
-from extensions import create_session
 
 
 def connect_to_database(db):
@@ -20,7 +19,7 @@ def connect_to_database(db):
     spacer(cols[1], 2)
     if cols[1].button('Connect', type='primary'):
         engine = change_database_connection(database)
-        db = create_db(engine)
+        db = create_session(engine)
         cols[0].success(f'Connected to {get_database_name(engine)} successfully!')
     return db
 

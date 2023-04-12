@@ -1,7 +1,7 @@
 import streamlit as st
 from sqlalchemy import exists
 from db import session, get_user_by_username
-from models import DBConnect, User, LanguageHour, Course, File, Score, Log, Message, Database
+from models import DBConnect, User, Course, File, Score, Log, Message, Database
 from utils import divider, read_excel, dot_dict
 from datetime import datetime
 import pytz
@@ -156,7 +156,7 @@ def add_course(db):
         end_date = st.date_input('End Date')
         if st.form_submit_button('Submit'):
 
-            user_id = get_user(db, username)
+            user_id = get_user_by_username(db, username)
             # Create the database model
             course = Course(
                 user_id=user_id,
@@ -224,7 +224,7 @@ def compose_message(db, user_id):
                 st.warning('Message cannot not be blank.')
 
             # Check if recipient is valid and get recipient ID
-            user = dot_dict(get_user(db, recipient))
+            user = dot_dict(get_user_by_username(db, recipient))
             if not user:
                 st.warning('Could not find recipient.')
                 return
