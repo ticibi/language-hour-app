@@ -8,18 +8,19 @@ def hash_password(password):
 def validate_password(password, hash_password):
     return bcrypt.checkpw(
         password.encode('utf-8'),
-        hash_password.decode().encode('utf-8')
+        hash_password.encode('utf-8')
     )
 
 def authenticate_user(user_dict, username, password, hashed_password):
     if not user_dict:
-        return False
+         return
     if user_dict.username == username and validate_password(password, hashed_password):
         st.session_state.authenticated = True
         add_authenticated_user_to_session_state(user_dict)
         st.success('Logged in!')
+        print('logged in')
         return True
-    st.warning('Invalid username or password.')
+    st.warning('Invalid username or password. Return to Login page.')
     st.session_state.authenticated = False
     st.session_state.current_user = None
     return False
@@ -28,4 +29,5 @@ def add_authenticated_user_to_session_state(user_dict):
      del user_dict['password_hash']
      st.session_state.current_user = user_dict
      st.session_state.logged_in = True
+     print('added authenticated user to session state')
 

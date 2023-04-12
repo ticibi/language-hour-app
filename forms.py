@@ -1,7 +1,7 @@
 import streamlit as st
 from sqlalchemy import exists
-from db import session, get_user
-from models import User, Group, LanguageHour, Course, File, Score, Log, Message
+from db import session, get_user_by_username
+from models import DBConnect, User, LanguageHour, Course, File, Score, Log, Message, Database
 from utils import divider, read_excel, dot_dict
 from datetime import datetime
 import pytz
@@ -9,19 +9,74 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from config import BG_COLOR_DARK, BG_COLOR_LIGHT
 import calendar
+from config import HOST, PORT, DB_PASSWORD, DB_USERNAME
 
-def add_user(db):
-    # Declare the form
-    with st.form('add_user'):
-        st.write('Add User')
+
+def add_dbconnect_user(db):
+    with st.form('dbconnect_form'):
+        st.write('Add user to master db')
+        cols = st.columns([1, 1, 1])
+        username = cols[0].text_input('Username')
+        db_id = cols[0].number_input('Database ID', step=1)
+        if st.form_submit_button('Submit'):
+            user_exists = db.query(exists().where(DBConnect.username==username)).scalar()
+            if user_exists:
+                st.warning('Username already exists.')
+                return
+            with session(db) as db:
+                user = DBConnect(
+                    username=username,
+                    db_id=db_id
+                )
+                db.add(user)
+
+def add_database(db):
+    # Declare form
+    with st.form('add_database'):
+        st.write('Create database')
 
         # Create input fields
-        name = st.text_input('Name', placeholder='First M Last')
+        name = st.text_input('Database name')
+        if st.form_submit_button('Submit'):
+            with session(db) as db:
+                db_exists = db.query(exists().where(Database.name==name)).scalar()
+                if db_exists:
+                    st.warning('A database with that name already exists.')
+                    return
+                
+                # Create the database model
+                database = Database(
+                    name=name,
+                    host=HOST,
+                    port=PORT,
+                    username=DB_USERNAME,
+                    password=DB_PASSWORD,
+                )
+
+                try:
+                    db.add(database)
+                    st.success('Database added successfully!')
+                except:
+                    st.warning('Failed to add database to database.')
+
+def add_user(db, title='Add User'):
+    # Declare the form
+    with st.form('add_user'):
+        st.write(title)
+
+        # Create input fields
+        first_name = st.text_input('First name')
+        middle_initial = st.text_input('Middle initial')
+        last_name = st.text_input('Last name')
         username = st.text_input('Username', placeholder='fmlast')
         password = st.text_input('Password', type='password')
         email = st.text_input('Email (optional)')
-        is_admin = st.checkbox('Admin')
-        group_id = st.number_input('Group ID',min_value=15, step=1)
+        if title == 'Initial User:':
+            is_admin = st.checkbox('is Admin?', value=True)
+            is_dev = st.checkbox('is Dev?', value=True)
+        else:
+            is_admin = st.checkbox('is Admin?')
+            is_dev = st.checkbox('is Dev?')
         if st.form_submit_button('Submit'):
 
             # Check if the username already exists in the database
@@ -33,12 +88,14 @@ def add_user(db):
 
             # Create the database model
             user = User(
-                name=name,
+                first_name=first_name,
+                middle_initial=middle_initial,
+                last_name=last_name,
                 username=username,
                 password_hash=password,
                 email=email,
                 is_admin=bool(is_admin),
-                group_id=int(group_id),
+                is_dev=bool(is_dev),
             )
             
             # Commit it to the database
@@ -49,42 +106,13 @@ def add_user(db):
                 except:
                     st.warning('Failed to add user.')
 
-def add_group(db):
-    # Declare the form
-    with st.form('add_group'):
-        st.write('Add Group')
-
-        # Create input fields
-        name = st.text_input('Name')
-        if st.form_submit_button('Submit'):
-
-            # Check if the group already exists in the database
-            with session(db) as db:
-                group_exists = db.query(exists().where(Group.name==name)).scalar()
-                if group_exists:
-                    st.warning('A group with that name already exists.')
-                    return
-
-            # Create the database model
-            group = Group(
-                name=name,
-            )
-            
-            # Commit it to the database
-            with session(db) as db:
-                try:
-                    db.add(group)
-                    st.success(f'Group created successfully.')
-                except:
-                    st.warning('Failed to create group.')
-
 def add_score(db):
     # Declare the form
     with st.form('add_score'):
         st.write('Add Score')
 
         # Create input fields
-        username = st.text_input('Name')
+        username = st.text_input('Username', value=st.session_state.current_user.username)
         language = st.text_input('Language', value='Arabic')
         dicode = st.text_input('Dicode', value='AP')
         listening = st.text_input('Listening Score')
@@ -93,10 +121,11 @@ def add_score(db):
         date = st.date_input('Date')
         if st.form_submit_button('Submit'):
 
-            user_id = get_user(db, username)
+            user = get_user_by_username(db, username)
+
             # Create the database model
             score = Score(
-                user_id=username,
+                user_id=user.id,
                 langauge=language,
                 dicode=dicode,
                 listening=listening,
@@ -151,7 +180,7 @@ def add_log(db, user_id, message):
     log = Log(
         user_id=user_id,
         message=message,
-        date=now,
+        timestamp=now,
     )
     with session(db) as db:
         db.add(log)
@@ -169,7 +198,7 @@ def add_file(db):
         new_file = File(
             user_id=st.session_state.current_user.id,
             name=file.name,
-            file=file_contents,
+            content=file_contents,
         )
         
         # Add the file record to the database
@@ -204,6 +233,8 @@ def compose_message(db, user_id):
             message = Message(
                 sender_id=user_id,
                 recipient_id=user.id,
+                read=False,
+                archived=False,
                 content=content,
                 timestamp=datetime.utcnow(),
             )
@@ -217,6 +248,8 @@ def compose_message(db, user_id):
                     st.warning('Failed to send message.')
         
 def upload_language_hours(db):
+    if not st.session_state.current_user:
+        return
     with st.expander('Upload language hours'):
         file = st.file_uploader(':green[Upload an excel file here to populate history]', type=['xlsx'])
         divider()

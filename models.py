@@ -5,7 +5,8 @@ from extensions import Base
 import json
 import pandas as pd
 
-MODELS = ['User', 'Group', 'Course', 'LanguageHour', 'Score', 'File', 'Log', 'Message']
+MODELS = ['User', 'Course', 'LanguageHour', 'Score', 'File', 'Log', 'Message']
+
 
 class BaseModel:
     def __repr__(self):
@@ -29,30 +30,36 @@ class BaseModel:
             data[column.name] = getattr(self, column.name)
         return data
 
+class DBConnect(Base, BaseModel):
+    __tablename__ = 'dbconnect'
+    id = Column(Integer, Sequence('dbc_id_seq'), primary_key=True)
+    username = Column(String(50), nullable=False, unique=True)
+    db_id = Column(Integer)
+
+class Database(Base, BaseModel):
+    __tablename__ = 'databases'
+    id = Column(Integer, Sequence('db_id_seq'), primary_key=True)
+    name = Column(String(55))
+    host = Column(String(55))
+    port = Column(Integer)
+    username = Column(String(55))
+    password = Column(String(55))
+
 class User(Base, BaseModel):
     __tablename__ = 'users'
     id = Column(Integer, Sequence('user_id_seq'), primary_key=True)
-    name = Column(String(50)) # remove
-    # first_name = Column(String(25))
-    # last_name = Column(String(25))
-    # middle_initial = Column(String(2))
-    # fullname = Column(String(52))
+    first_name = Column(String(25))
+    last_name = Column(String(25))
+    middle_initial = Column(String(2))
     username = Column(String(50), nullable=False, unique=True)
-    password_hash = Column(String(100)) # rename to "password"
+    password_hash = Column(String(100))
     is_admin = Column(Boolean, default=False)
-    # is_dev = Column(Boolean, default=False)
+    is_dev = Column(Boolean, default=False)
     email = Column(String(50))
-    group_id = Column(Integer, ForeignKey('groups.id'))
     language_hours = relationship('LanguageHour', back_populates='user')
     scores = relationship('Score')
     courses = relationship('Course')
     files = relationship('File')
-
-class Group(Base, BaseModel):
-    __tablename__ = 'groups'
-    id = Column(Integer, Sequence('group_id_seq'), primary_key=True)
-    name = Column(String(50), nullable=False, unique=True)
-    users = relationship('User', backref='group') # Relationship with User table
 
 class Course(Base, BaseModel):
     __tablename__ = 'courses'
@@ -103,7 +110,7 @@ class File(Base, BaseModel):
     id = Column(Integer, Sequence('file_id_seq'), primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'))  # Define a foreign key relationship
     name = Column(String(100))
-    file = Column(LargeBinary) # rename to "content"
+    content = Column(LargeBinary) # rename to "content" from "file"
     user = relationship('User', back_populates='files')
 
 class Log(Base, BaseModel):
@@ -111,22 +118,22 @@ class Log(Base, BaseModel):
     id = Column(Integer, Sequence('log_id_seq'), primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'))  # Define a foreign key relationship
     message = Column(String(255))
-    date = Column(Date) # remove
-    # timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=datetime.utcnow)
 
 class Message(Base, BaseModel):
     __tablename__ = 'messages'
     id = Column(Integer, Sequence('message_id_seq'), primary_key=True)
     sender_id = Column(Integer, ForeignKey('users.id'))
     recipient_id = Column(Integer, ForeignKey('users.id'))
-    # read = Column(Boolean, default=False)
-    # archived = Column(Boolean, default=False)
+    read = Column(Boolean, default=False)
+    archived = Column(Boolean, default=False)
     content = Column(String(255))
     timestamp = Column(DateTime, default=datetime.utcnow)
 
 TABLE = {
+    'DBConnect': DBConnect,
+    'Database': Database,
     'User': User,
-    'Group': Group,
     'Course': Course,
     'LanguageHour': LanguageHour,
     'Score': Score,

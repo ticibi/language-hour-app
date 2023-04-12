@@ -4,7 +4,25 @@ from db import reset_autoincrement, delete_row_by_id, session
 from models import MODELS, TABLE, File, LanguageHour
 from utils import to_excel, spacer
 from sqlalchemy import text
+from db import change_database_connection, get_database_name, get_databases
+from config import DB1
+from extensions import create_session
 
+
+def connect_to_database(db):
+    # Get all databases
+    databases = [d.name for d in get_databases(db)]
+    databases.insert(0, DB1)
+
+    # Create the UI
+    cols = st.columns([1, 1, 1])
+    database = cols[0].selectbox('Select a database to connect to: ', options=databases)
+    spacer(cols[1], 2)
+    if cols[1].button('Connect', type='primary'):
+        engine = change_database_connection(database)
+        db = create_db(engine)
+        cols[0].success(f'Connected to {get_database_name(engine)} successfully!')
+    return db
 
 def download_file(db):
     cols = st.columns([1, 2])
@@ -15,7 +33,7 @@ def download_file(db):
             pass
 
 def delete_row(db):
-    st.write('Delete row by ID')
+    st.write('Delete row in selected table by ID: ')
     cols = st.columns([1, 1, 1])
     id = cols[0].number_input('ID', step=1)
     cls = cols[1].selectbox('Table', index=len(MODELS)-1, options=MODELS)
@@ -25,7 +43,7 @@ def delete_row(db):
 
 def delete_entities(db):
     cols = st.columns([2, 1])
-    class_name = cols[0].selectbox('Choose table:', index=len(MODELS)-1, options=MODELS)
+    class_name = cols[0].selectbox('Choose table to delete:', index=len(MODELS)-1, options=MODELS)
     cls = TABLE[class_name]
     
     spacer(cols[1], len=2)
@@ -39,7 +57,7 @@ def delete_entities(db):
 
             # Inform the user that the table has been deleted
             st.info(f'Auto-increment for {cls.__tablename__} has been reset.')
-        
+    
 def display_entities(db, cls, user_id=None, exclude=[]):
     if user_id:
         entities = db.query(cls).filter(cls.user_id == user_id).all()

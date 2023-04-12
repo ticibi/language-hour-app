@@ -2,16 +2,16 @@ import streamlit as st
 
 DB_USERNAME = st.secrets['DB_USERNAME']
 DB_PASSWORD = st.secrets['DB_PASSWORD']
+ADMIN_USERNAME = st.secrets['ADMIN_USERNAME']
+ADMIN_PASSWORD = st.secrets['ADMIN_PASSWORD']
+CONNECTOR = st.secrets['CONNECTOR']
 HOST = st.secrets['HOST']
 PORT = st.secrets['PORT']
-DB_NAME = st.secrets['DB_NAME']
-DATABASES = [
-    st.secrets['DB_NAME'],
-    st.secrets['DB_NAME2'],
-]
-
+DB1 = st.secrets['DB_1']
 SESSION_VARIABLES = [
     'db', # sql database session
+    'engine', # sql database engine
+    'session', # sql user session
     'authenticated', # user authentication status
     'logged_in', # current user login status
     'current_user', # current authenticated user

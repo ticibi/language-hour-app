@@ -6,14 +6,15 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 
 from auth import authenticate_user, hash_password
-from db import get_user, commit_or_rollback
+from db import get_databases, connect_user_to_database, get_database_name, get_user_by_username, commit_or_rollback
 from utils import divider, spacer, dot_dict, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
 from comps import submit_entry, download_file, download_to_excel, delete_row, display_entities, delete_entities
-from models import LanguageHour, User, Group, File, Score, Course, Message, Log
-from config import MODALITIES, DATABASES
+from models import LanguageHour, User, File, Score, Course, Message, Log
+from config import MODALITIES, ADMIN_PASSWORD, ADMIN_USERNAME
 from load import load_user_models
-from forms import pie_chart, bar_graph, add_user, add_group, add_score, add_course, add_file, add_log, compose_message, upload_language_hours
+from forms import pie_chart, bar_graph, add_user, add_score, add_course, add_file, add_log, compose_message, upload_language_hours, add_database, add_dbconnect_user
 from components.card import card
+from extensions import db1
 
 
 def admin_access_warning(cols=st.columns):
@@ -39,7 +40,7 @@ def access_warning(cols=None, sidebar=True):
         return False
     return True
 
-def test_zone(db):
+def test_zone():
     columns = st.columns([1, 3, 1])
     if not admin_access_warning(columns):
         return
@@ -49,7 +50,8 @@ def test_zone(db):
     with st.expander('My Hours Graph', expanded=True):
         bar_graph(data)
 
-def home(db):
+def home():
+    db = st.session_state.session
     columns = st.columns([1, 3, 1])
     if not access_warning(columns):
         return
@@ -60,11 +62,12 @@ def home(db):
 
         # Download the language hour history as an Excel file
         file = download_to_excel(db, LanguageHour, st.session_state.current_user.id)
-        cols[0].download_button(label='Download Excel', data=file, file_name='language_hours.xlsx')
+        if file:
+            cols[0].download_button(label='Download Excel', data=file, file_name='language_hours.xlsx')
 
         # Query the database for data
         history = st.session_state.current_user_data.LanguageHour
-        scores = st.session_state.current_user_data.Score[0]
+        scores = st.session_state.current_user_data.Score
 
         # Get the current month and year
         month = date.today().month
@@ -76,22 +79,24 @@ def home(db):
 
         # Fill in the PDF if there is enough data
         #if scores and hours_this_month and history_this_month:
-        name = st.session_state.current_user.name.split(' ')
+        user = st.session_state.current_user
         record = language_hour_history_to_string(history_this_month)
         if not record:
             st.info('You have not submitted any hours yet this month.')
         formatted_date = f'{calendar.month_abbr[date.today().month]}-{date.today().year}'
+        if not scores:
+            return
         data_fields = {
-            'Language': scores.langauge,
-            'Member Name': f'{name[2].upper()} {name[0].upper()} {name[1].upper()}',
+            'Language': scores[0].langauge,
+            'Member Name': f'{user.last_name.upper()} {user.first_name.upper()} {user.middle_initial.upper()}',
             'Hours Studied': hours_this_month,
             'Date': formatted_date,
-            'Listening': scores.listening,
-            'Reading': scores.reading,
+            'Listening': scores[0].listening,
+            'Reading': scores[0].reading,
             'Maintenance Record': record,
         }
         pdf = create_pdf(data_fields)
-        cols[1].download_button(label='Create 623A', data=pdf, file_name=f'623A_{formatted_date.upper()}_{name[2].upper()}.pdf')
+        cols[1].download_button(label='Create 623A', data=pdf, file_name=f'623A_{formatted_date.upper()}_{user.last_name.upper()}.pdf')
 
     # Define a function to display the language hour history table
     def display_language_hours():
@@ -110,7 +115,38 @@ def home(db):
             display_language_hour_history()
             display_language_hour_entities()
 
-def admin(db):
+def database_management():
+    db = st.session_state.session
+    with st.expander('Database Management'):
+        cols = st.columns([2, 1])
+        databases = [d.name for d in get_databases(db1)]
+        cols[0].selectbox('Select database connection:', options=databases)
+        spacer(cols[1], len=2)
+        if cols[1].button('Select'):
+            pass
+        add_dbconnect_user(db1)
+
+        divider()
+        delete_row(db)
+
+        divider()
+        delete_entities(db)
+
+        divider()
+        st.write('Database changes:')   
+        cols = st.columns([1, 1, 1])
+        if cols[0].button("Save changes"):
+            commit_or_rollback(db, commit=True)
+
+        if cols[1].button("Discard changes"):
+            commit_or_rollback(db, commit=False)
+
+def admin():
+    db = st.session_state.session
+    if st.session_state.engine:
+        db_name = get_database_name(st.session_state.engine)
+        st.sidebar.write(f'connected to: :blue[{db_name}]')
+
     columns = st.columns([1, 3, 1])
     if not admin_access_warning(columns):
         return
@@ -118,13 +154,9 @@ def admin(db):
     with columns[1]:
         upload_language_hours(db)
 
-        with st.expander('Groups'):
-            add_group(db)
-            display_entities(db, Group)
-
         with st.expander('Users'):
             add_user(db)
-            display_entities(db, User)
+            display_entities(db, User, exclude=['password_hash'])
 
         with st.expander('Score'):
             add_score(db)
@@ -149,31 +181,25 @@ def admin(db):
         with st.expander('Logs'):
             display_entities(db, Log)
 
-        with st.expander('Database Management'):
-            cols = st.columns([2, 1])  
-            cols[0].selectbox('Select database connection:', options=DATABASES)
-            spacer(cols[1], len=2)
-            if cols[1].button('Select'):
-                pass
+        database_management()
 
-            divider()
-            delete_row(db)
+def sidebar():
+    if not st.session_state.session:
+        return
+    
+    db = st.session_state.session
 
-            divider()
-            delete_entities(db)
-
-            divider()
-            st.write('Database changes:')   
-            cols = st.columns([1, 1, 1])
-            if cols[0].button("Save changes"):
-                commit_or_rollback(db, commit=True)
-
-            if cols[1].button("Discard changes"):
-                commit_or_rollback(db, commit=False)
-
-def sidebar(db):
     if not access_warning():
         return
+
+    # Display session state variables
+    with st.sidebar.expander('Session State', expanded=True):
+        #if st.session_state.current_user:
+            #if st.session_state.current_user.is_admin:
+        st.write('(Admin)')
+        st.write(st.session_state)
+
+    return
     
     with st.sidebar:
         st.subheader('Message Center')
@@ -195,14 +221,7 @@ def sidebar(db):
             else:
                 st.write('You have no messages.')
 
-        # Display session state variables
-        with st.expander('Session State'):
-            if st.session_state.current_user:
-                if st.session_state.current_user.is_admin:
-                    st.write('(Admin)')
-                    st.write(st.session_state)
-
-def navbar(db):
+def navbar():
     nav_bar = option_menu(
         'Language Training Management',
         ['Login','Home', 'Submit Hour', 'Admin', 'TESTZONE'],
@@ -213,31 +232,21 @@ def navbar(db):
     )
 
     if nav_bar == 'Login':
-        login(db)
+        login()
     elif nav_bar == 'Home':
-        home(db)
+        home()
     elif nav_bar == 'Admin':
-        admin(db)
+        admin()
     elif nav_bar == 'TESTZONE':
-        test_zone(db)
+        test_zone()
     elif nav_bar == 'Submit Hour':
-        submit_hour(db)
+        submit_hour()
     else:
-        home(db)
+        home()
 
-    #match nav_bar:
-    #    case 'Login':
-    #        login(db)
-    #    case 'Home':
-    #        home(db)
-    #    case 'Admin':
-    #        admin(db)
-    #    case 'Submit Hour':
-    #        submit_hour(db)
-    #    case default:
-    #        pass
+def submit_hour():
+    db = st.session_state.session
 
-def submit_hour(db):
     columns = st.columns([1, 3, 1])
     if not access_warning(columns):
         return
@@ -251,7 +260,11 @@ def submit_hour(db):
 
             history_this_month = filter_monthly_hours(st.session_state.current_user_data.LanguageHour, month, year)
             hours_this_month = calculate_total_hours(history_this_month)
-            hours_required = calculate_required_hours(st.session_state.current_user_data.Score[0])
+            scores = st.session_state.current_user_data.Score
+            if scores:
+                hours_required = calculate_required_hours(scores[0])
+            else:
+                hours_required = 'X'
 
             # create the submission form
             with st.form('submit_hours', clear_on_submit=True):
@@ -276,7 +289,8 @@ def submit_hour(db):
                     else:
                         st.warning('You must fill out every field.')
 
-def login(db):
+def login():
+    db = st.session_state.session
     columns = st.columns([1, 1, 1])
     # Display Login view
     if not st.session_state.authenticated:
@@ -288,19 +302,43 @@ def login(db):
                 username = form.text_input('Username')
                 password = form.text_input("Password", type="password")
                 if form.form_submit_button('Login'):
-                    if username and password:
-                        hashed_password = hash_password(password)
-                        user = get_user(db, username)
-                        user = db.query(User).filter_by(username=username).first()
-                        user_dict = dot_dict(user.to_dict())
-                        if authenticate_user(user_dict, username, password, hashed_password):
+                    if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+                        # Display global admin page
+                        # Add databases
+                        # Add dbconnect users
+                        pass
+                    
+                    elif username and password:
+                        db = connect_user_to_database(username)
+                        #users = db.query(User).count()
+                        #if users < 1:
+                        #    user = User(
+                        #        first_name='Esther',
+                        #        last_name='Kim',
+                        #        middle_initial='G',
+                        #        username='egkim',
+                        #        password_hash=hash_password('bbb'),
+                        #        is_admin=True,
+                        #        is_dev=True,
+                        #        email='',
+                        #    )
+                        #    db.add(user)
+                        #    db.commit()
+                        #    st.success('added user')
+
+                        user = get_user_by_username(db, username)
+                        if not user:
+                            st.warning('Could not find user.')
+                            return
+                        
+                        if authenticate_user(user, username, password, user.password_hash):
                             with st.spinner('Loading...'):
                                 user_data = load_user_models(db, st.session_state.current_user.id)
                                 st.session_state.current_user_data = user_data
                             container.empty()
                             st.success('Logged in!')
-                            add_log(db, st.session_state.current_user.id, f'{username} logged in.')
+                            #add_log(_db, st.session_state.current_user.id, f'{username} logged in.')
                     else:
-                        st.warning('Please enter username and password.')
+                        st.warning('Invalid username or password. Return to Login page.')
                         return
 

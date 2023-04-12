@@ -1,9 +1,15 @@
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy_utils import create_database, database_exists
-from extensions import Base, engine
+from extensions import Base, db1
 import streamlit as st
-from models import User
+from models import User, DBConnect
 from contextlib import contextmanager
+from sqlalchemy import create_engine, MetaData, exists
+from sqlalchemy.engine.url import make_url
+from config import HOST, DB_USERNAME, DB_PASSWORD, CONNECTOR
+from models import Database
+from utils import dot_dict
+import pandas as pd
+
 
 @contextmanager
 def session(db):
@@ -16,6 +22,54 @@ def session(db):
     finally:
         db.close()
 
+def connect_user_to_database(username):
+    # Create an engine for the appropriate database
+    user_db = get_user_database_connection_info(db1, username)
+    user_engine = create_engine(f'{CONNECTOR}://{user_db.username}:{user_db.password}@{user_db.host}/{user_db.name}')
+    Base.metadata.bind = user_engine
+
+    # Create a session for the appropriate database
+    UserSession = sessionmaker(bind=user_engine)
+    user_session = UserSession()
+    st.session_state.session = user_session
+
+    db_name = get_database_name(user_engine)
+    st.sidebar.write(f'connected to :blue[{db_name}]')
+
+    return user_session
+
+def check_db_empty(db):
+    with session(db) as db:
+        users = db.query(User).count()
+        if not users:
+            return True
+        return False
+
+def check_username_exists(db, username):
+    with session(db) as db:
+        result = db.query(exists().where(DBConnect.username==username)).scalar()
+        return result
+
+def get_user_database_connection_info(db, username):
+        '''connect the user to the appropriate database'''
+        data = get_db_id_by_username(db, username)
+        db_info = get_database_by_id(db, data.db_id)
+        return db_info
+
+def get_db_id_by_username(db, username):
+    with session(db) as db:
+        result = db.query(DBConnect).filter(DBConnect.username==username).first()
+        return dot_dict(result.to_dict()) if result else None
+
+def get_database_by_id(db, id):
+    with session(db) as db:
+        result = db.query(Database).filter(Database.id==id).first()
+        return dot_dict(result.to_dict()) if result else None
+
+def get_database_name(engine):
+    url = make_url(engine.url)
+    return url.database
+
 def commit_or_rollback(db, commit: bool):
     with session(db) as db:
         if commit:
@@ -25,18 +79,10 @@ def commit_or_rollback(db, commit: bool):
             db.rollback()
             st.warning("Changes rolled back.")
 
-def get_user(db, user) -> dict:
-    '''provide either username string or user_id int and
-    return the user model object as a dict'''
-    results = {}
-    with session(db) as db:
-        if isinstance(user, int):
-            results = db.query(User).filter(User.id == int(user)).first()
-        elif isinstance(user, str):
-            results = db.query(User).filter(User.username == user).first()
-        if results:
-            return results.to_dict()
-    return {}
+def get_user_by_username(db, username):
+    with session(db) as _db:
+        result = _db.query(User).filter(User.username==username).first()
+        return dot_dict(result.to_dict()) if result else None
 
 def get_user_by_name(db, name):
     '''get user model data given user.name as "First M Last"'''
@@ -47,8 +93,7 @@ def get_user_by_name(db, name):
             print('failed to retrieve user: ', e)
         return result if result else None
 
-
-def reset_autoincrement(table_name):
+def reset_autoincrement(engine, table_name):
     with engine.connect() as conn:
         conn.execute(f"ALTER TABLE {table_name} AUTO_INCREMENT = 1")
 
@@ -61,40 +106,20 @@ def delete_row_by_id(db, cls, id):
         else:
             st.warning(f"Row not found.")
 
-@st.cache_resource
-def create_db():
-    '''create the database: creates engine and returns session'''
-    if not database_exists(engine.url):
-        try:
-            create_database(engine.url)
-            print('created database')
-        except Exception as e:
-            print(f"Could not create database: {e}")
-            return None
-    
+def change_database_connection(db_name, username=DB_USERNAME, password=DB_PASSWORD, host=HOST):
+    return create_engine(f'mysql+pymysql://{username}:{password}@{host}/{db_name}')
+
+def test_db(engine):
     try:
         conn = engine.connect()
         print('Connection successful!')
         conn.close()
+        return True
     except Exception as e:
         print(f"Error connecting to database: {e}")
-        return None
-    
-    Session = sessionmaker(bind=engine)
-    session = Session()
+        return False
 
-    try:
-        Base.metadata.create_all(engine)
-        st.session_state['db'] = session
-        print('Successfully created database.')
-        return session
-    except Exception as e:
-        print(f"Error creating tables: {e}")
-        session.close()
-        return None
-
-@st.cache_resource
-def clear_db() -> bool:
+def clear_db(engine) -> bool:
     '''clear database: delete all tables and data inside the database'''
     try:
         Base.metadata.drop_all(engine)
@@ -102,6 +127,45 @@ def clear_db() -> bool:
     except Exception as e:
         print(f"Error dropping tables: {e}")
         return False
+
+def edit_user(db, user_id: int, name: str = None, username: str = None, password: str = None, is_admin: bool = None, email: str = None, group_id: int = None) -> bool:
+    with session(db) as db:
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            if name:
+                user.name = name
+            if username:
+                user.username = username
+            if password:
+                user.password_hash = password
+            if is_admin is not None:
+                user.is_admin = is_admin
+            if email:
+                user.email = email
+            if group_id:
+                user.group_id = group_id
+            return True
+        return False
+
+def get_databases(db):
+    with session(db) as db:
+        results = db.query(Database).all()
+        data = []
+        for item in results:
+            data.append(dot_dict(item.to_dict()))
+        return data
+
+def get_table(db, table):
+    with session(db) as db:
+        results = db.query(table).all()
+
+        df = pd.DataFrame([item.to_dict() for item in results])
+        return df
     
+def get_database_tables(engine):
+    # create a metadata object and reflect the database schema
+    metadata = MetaData()
+    metadata.reflect(bind=engine)
 
-
+    # get a list of all table names in the database
+    return metadata.tables.keys()

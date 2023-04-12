@@ -11,6 +11,7 @@ from models import LanguageHour, Message
 import calendar
 from datetime import datetime
 
+
 def spacer(cols, len=1):
     for i in range(len):
         cols.write(' ')
@@ -18,6 +19,7 @@ def spacer(cols, len=1):
 
 def divider():
     st.markdown('''---''')
+
 
 class dot_dict(dict):
     def __getattr__(self, name):
@@ -113,7 +115,6 @@ def to_excel(df):
     df.to_excel(writer, index=False, sheet_name="MyHistory")
     return output.getvalue()
 
-
 def bulk_excel(file):
 
     # check that the user exists in the database
@@ -121,9 +122,6 @@ def bulk_excel(file):
     # if the user exists, call read_excel then add to database
 
     pass
-
-
-
 
 def timeit(func):
     '''time how long a function takes to execute'''
