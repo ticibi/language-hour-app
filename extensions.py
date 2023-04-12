@@ -2,6 +2,7 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import create_engine
 from sqlalchemy_utils import create_database, database_exists
 from config import DB_USERNAME, DB_PASSWORD, HOST, DB1, CONNECTOR
+import streamlit as st
 
 def create_session(engine):
     '''create the database: creates engine and returns session'''
@@ -29,6 +30,15 @@ def create_session(engine):
 Base = declarative_base()
 
 # Define the SQLAlchemy model for your table
-db1_engine = create_engine(f'{CONNECTOR}://{DB_USERNAME}:{DB_PASSWORD}@{HOST}/{DB1}')
-db1 = create_session(db1_engine)
+try:
+    db1_engine = create_engine(f'{CONNECTOR}://{DB_USERNAME}:{DB_PASSWORD}@{HOST}/{DB1}')
+except Exception as e:
+    st.warning('Unable to load page. Try again later.')
+    print('error creating engine for db1: ', e)
+
+try:
+    db1 = create_session(db1_engine)
+except Exception as e:
+    st.warning('Unable to load page. Try again later.')
+    print('error connecting to db1: ', e)
 

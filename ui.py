@@ -231,8 +231,11 @@ def sidebar():
     # Display session state variables
     with st.sidebar.expander('Session State', expanded=True):
         if st.session_state.current_user:
-            if st.session_state.current_user.is_admin:
-                st.write('(Admin)')
+            if st.session_state.current_user.is_dev:
+                st.write('(Dev)')
+                if st.session_state.engine:
+                    pool = st.session_state.engine.pool.status()
+                    st.write(f':blue[{pool}]')
                 st.write(st.session_state)
 
 def navbar():

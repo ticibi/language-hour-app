@@ -50,7 +50,7 @@ def delete_row(db):
 
     spacer(cols[2], len=2)
     if cols[2].button('Delete Row'):
-        delete_row_by_id(db, TABLE[cls], int(id))
+        delete_row_by_id(db, cls, int(id))
 
 def delete_entities(db):
     cols = st.columns([2, 1])

@@ -11,6 +11,7 @@ import pandas as pd
 from config import BG_COLOR_DARK, BG_COLOR_LIGHT
 import calendar
 from config import HOST, PORT, DB_PASSWORD, DB_USERNAME
+from auth import hash_password
 
 
 def add_dbconnect_user(db):
@@ -66,7 +67,7 @@ def add_database(db):
 
 def add_user(db, title='Add User'):
     # Declare the form
-    with st.form('add_user'):
+    with st.form('add_user', clear_on_submit=True):
         st.write(title)
 
         # Create input fields
@@ -97,7 +98,7 @@ def add_user(db, title='Add User'):
                 middle_initial=middle_initial,
                 last_name=last_name,
                 username=username,
-                password_hash=password,
+                password_hash=hash_password(password),
                 email=email,
                 is_admin=bool(is_admin),
                 is_dev=bool(is_dev),

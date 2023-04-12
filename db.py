@@ -29,6 +29,7 @@ def connect_user_to_database(username):
         return None
     user_engine = create_engine(f'{CONNECTOR}://{user_db.username}:{user_db.password}@{user_db.host}/{user_db.name}')
     Base.metadata.bind = user_engine
+    st.session_state.engine = user_engine
 
     # Create a session for the appropriate database
     UserSession = sessionmaker(bind=user_engine)
@@ -51,7 +52,7 @@ def check_username_exists(db, username):
     with session(db) as db:
         result = db.query(exists().where(DBConnect.username==username)).scalar()
         return result
-    
+
 def get_user_database_connection_info(db, username):
         '''connect the user to the appropriate database'''
         data = get_db_id_by_username(db, username)

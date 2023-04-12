@@ -17,7 +17,6 @@ initialize_session_state_variables(SESSION_VARIABLES)
 
 
 if __name__ == '__main__':
-    #clear_db(db1_engine)
 
     # Connect to the 'master' database to get the connection information for the appropriate database
     db1 = create_session(db1_engine)
