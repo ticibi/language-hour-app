@@ -6,10 +6,10 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 
 from auth import authenticate_user
-from db import get_user_by_id, get_databases, connect_user_to_database, get_database_name, get_user_by_username, commit_or_rollback
-from utils import divider, spacer, dot_dict, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
+from db import get_table_names, get_user_by_id, get_databases, connect_user_to_database, get_database_name, get_user_by_username, commit_or_rollback
+from utils import download_database, divider, spacer, dot_dict, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
 from comps import submit_entry, download_file, download_to_excel, delete_row, display_entities, delete_entities
-from models import LanguageHour, User, File, Score, Course, Message, Log
+from models import LanguageHour, User, File, Score, Course, Message, Log, MODELS
 from config import MODALITIES, ADMIN_PASSWORD, ADMIN_USERNAME, CONTACT_MSG
 from load import load_user_models
 from forms import bar_graph, add_user, add_score, add_course, add_file, add_log, compose_message, upload_language_hours, add_database, add_dbconnect_user
@@ -133,7 +133,15 @@ def home():
 
 def database_management():
     db = st.session_state.session
+    engine = st.session_state.engine
     with st.expander('Database Management'):
+        st.write('Download database to excel:')
+        cols = st.columns([1, 1, 1])
+        table = cols[0].selectbox('Select a table: ', options=get_table_names(engine))
+        spacer(cols[1], 2)
+        cols[1].download_button('Download', data=download_database(table, engine), file_name=f'{table}.xlsx', mime='application/vnd.ms-excel')
+
+        divider()
         add_dbconnect_user(db1)
 
         cols = st.columns([2, 1])
@@ -332,21 +340,6 @@ def login():
                         if not db:
                             st.warning('User not found.')
                             return
-                        #users = db.query(User).count()
-                        #if users < 1:
-                        #    user = User(
-                        #        first_name='Esther',
-                        #        last_name='Kim',
-                        #        middle_initial='G',
-                        #        username='egkim',
-                        #        password_hash=hash_password('bbb'),
-                        #        is_admin=True,
-                        #        is_dev=True,
-                        #        email='',
-                        #    )
-                        #    db.add(user)
-                        #    db.commit()
-                        #    st.success('added user')
 
                         user = get_user_by_username(db, username)
                         if not user:

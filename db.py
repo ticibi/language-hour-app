@@ -28,8 +28,8 @@ def connect_user_to_database(username):
     if not user_db:
         return None
     user_engine = create_engine(f'{CONNECTOR}://{user_db.username}:{user_db.password}@{user_db.host}/{user_db.name}')
-    Base.metadata.bind = user_engine
     st.session_state.engine = user_engine
+    Base.metadata.bind = user_engine
 
     # Create a session for the appropriate database
     UserSession = sessionmaker(bind=user_engine)
@@ -218,3 +218,9 @@ def upload_bulk_excel(db, file):
         print(f'added all entries from {sheet}')
         st.info(f'added all entries from {sheet}')
     st.success('Finished adding all entries.')
+
+def get_table_names(engine):
+    metadata = MetaData()
+    metadata.reflect(bind=engine)
+    return metadata.tables.keys()
+

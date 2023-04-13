@@ -5,8 +5,8 @@ from extensions import Base
 import json
 import pandas as pd
 
-MODELS = ['User', 'Course', 'LanguageHour', 'Score', 'File', 'Log', 'Message']
 
+MODELS = ['User', 'Course', 'LanguageHour', 'Score', 'File', 'Log', 'Message']
 
 class BaseModel:
     def __repr__(self):

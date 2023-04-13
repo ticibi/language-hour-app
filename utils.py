@@ -174,3 +174,8 @@ def create_pdf(data_fields):
 
     return output_buffer
 
+def download_database(table, engine):
+    df = pd.read_sql_table(table, engine.connect())
+    #df.to_excel(f"{table}.xlsx", engine='openpyxl', index=False)
+    return to_excel(df)
+
