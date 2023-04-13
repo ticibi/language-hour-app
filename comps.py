@@ -77,7 +77,7 @@ def display_entities(db, cls, user_id=None, exclude=[]):
     else:
         entities = db.query(cls).all()
     if not entities:
-        st.write(f"No {cls.__name__} entities found.")
+        st.info(f"No {cls.__name__} entities found.")
         return
     data = [entity.to_dataframe() for entity in entities]
     df = pd.concat(data)

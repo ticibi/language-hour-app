@@ -67,6 +67,7 @@ def add_database(db):
 
 def add_user(db, title='Add User'):
     # Declare the form
+    st.info('Make sure to add username to master database in Database Management')
     with st.form('add_user', clear_on_submit=True):
         st.write(title)
 

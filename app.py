@@ -20,7 +20,7 @@ if __name__ == '__main__':
     # Connect to the 'master' database to get the connection information for the appropriate database
     db1 = create_session(db1_engine)
     db_name = get_database_name(db1_engine)
-    st.sidebar.write(f'connected to :blue[{db_name}]')  
+    #st.sidebar.write(f'connected to :blue[{db_name}]')  
 
     # Prompt to add a user if there are none in the database
     if db1.query(DBConnect).count() < 1:

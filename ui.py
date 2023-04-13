@@ -10,7 +10,7 @@ from db import get_user_by_id, get_databases, connect_user_to_database, get_data
 from utils import divider, spacer, dot_dict, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
 from comps import submit_entry, download_file, download_to_excel, delete_row, display_entities, delete_entities
 from models import LanguageHour, User, File, Score, Course, Message, Log
-from config import MODALITIES, ADMIN_PASSWORD, ADMIN_USERNAME
+from config import MODALITIES, ADMIN_PASSWORD, ADMIN_USERNAME, CONTACT_MSG
 from load import load_user_models
 from forms import bar_graph, add_user, add_score, add_course, add_file, add_log, compose_message, upload_language_hours, add_database, add_dbconnect_user
 from components.card import card
@@ -92,7 +92,7 @@ def home():
 
         formatted_date = f'{selected_month}{selected_year}'
         if not scores:
-            st.info('Your test scores cannot be found. Please contact an LTM to update your profile.')
+            st.info(f'Your test scores cannot be found. {CONTACT_MSG}')
             return
         
         data_fields = {
@@ -283,6 +283,7 @@ def submit_hour():
                 hours_required = calculate_required_hours(scores[0])
             else:
                 hours_required = 'X'
+                st.info(f'Could not determine required hours because your test scores could not be found. {CONTACT_MSG}')
 
             # create the submission form
             with st.form('submit_hours', clear_on_submit=True):
