@@ -1,14 +1,16 @@
 from sqlalchemy.orm import sessionmaker
 from extensions import Base, db1
 import streamlit as st
-from models import User, DBConnect, LanguageHour
+from models import User, DBConnect, LanguageHour, Score
 from contextlib import contextmanager
 from sqlalchemy import create_engine, MetaData, exists, and_
 from sqlalchemy.engine.url import make_url
 from config import HOST, DB_USERNAME, DB_PASSWORD, CONNECTOR
 from models import Database
-from utils import dot_dict
+from utils import calculate_required_hours, spacer, dot_dict, calculate_total_hours, filter_monthly_hours
 import pandas as pd
+from datetime import date
+import calendar
 
 
 @contextmanager
@@ -90,6 +92,7 @@ def commit_or_rollback(db, commit: bool):
             st.warning("Changes rolled back.")
 
 def get_all_users(db):
+    '''returns user model as a dot dictionary'''
     with session(db) as db:
         results = db.query(User).all()
         data = []
@@ -98,16 +101,19 @@ def get_all_users(db):
         return data
 
 def get_user_by_username(db, username):
+    '''returns user model as a dot dictionary'''
     with session(db) as _db:
         result = _db.query(User).filter(User.username==username).first()
         return dot_dict(result.to_dict()) if result else None
 
 def get_user_by_name(db, last_name):
+    '''returns user model as a dot dictionary'''
     with session(db) as _db:
         result = _db.query(User).filter(User.last_name==last_name).first()
         return dot_dict(result.to_dict()) if result else None
 
 def get_user_by_id(db, id):
+    '''returns user model as a dot dictionary'''
     with session(db) as _db:
         result = _db.query(User).filter(User.id==id).first()
         return dot_dict(result.to_dict()) if result else None
@@ -223,4 +229,54 @@ def get_table_names(engine):
     metadata = MetaData()
     metadata.reflect(bind=engine)
     return metadata.tables.keys()
+
+def get_user_model_by_id(db, cls, user_id):
+    '''returns user data for provided model as a dot dict'''
+    with session(db) as _db:
+        results = _db.query(cls).filter(cls.user_id==user_id).all()
+        data = []
+        for item in results:
+            data.append(dot_dict(item.to_dict()))
+        return data
+
+def get_user_language_hours(db, user_id):
+    '''returns user language hours as a dot dict'''
+    with session(db) as _db:
+        results = _db.query(LanguageHour).filter(LanguageHour.user_id==user_id).all()
+        data = []
+        for item in results:
+            data.append(dot_dict(item.to_dict()))
+        return data
+
+
+def rundown(db):
+    current_month = date.today().month
+    current_year = date.today().year
+
+    cols = st.columns([1, 1, 1])
+    selected_month = cols[0].selectbox('Month', key='rundown_month', index=current_month, options=calendar.month_name)
+    year = cols[1].number_input('Year', key='rundown_year', value=current_year, min_value=2021, step=1)
+    spacer(cols[2], 2)
+    if cols[2].button('Gimme da rundown', type='primary'):
+        pass
+
+        month = list(calendar.month_name).index(selected_month)
+
+        data = []
+        users = get_all_users(db)
+        for user in users:
+            lang_hours = get_user_language_hours(db, user.id)
+            score_data = get_user_model_by_id(db, Score, user.id)
+            if not score_data:
+                st.warning(f'skipping {user.username}: no score data found.')
+                continue
+            hours_required = calculate_required_hours(score_data[0])
+            filtered_hours = filter_monthly_hours(lang_hours, month, year)
+            hours_done = calculate_total_hours(filtered_hours)
+            status = '✅' if hours_done >= hours_required else '❌'
+            info = dot_dict({'status': status,'user': user.last_name, 'hours': hours_done, 'hours_required': hours_required})
+            data.append(info)
+
+        df = pd.DataFrame(data).set_index('user')
+        st.dataframe(df, use_container_width=False)
 

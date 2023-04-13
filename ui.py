@@ -6,7 +6,7 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 
 from auth import authenticate_user
-from db import get_table_names, get_user_by_id, get_databases, connect_user_to_database, get_database_name, get_user_by_username, commit_or_rollback
+from db import rundown, get_table_names, get_user_by_id, get_databases, connect_user_to_database, get_database_name, get_user_by_username, commit_or_rollback
 from utils import download_database, divider, spacer, dot_dict, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
 from comps import submit_entry, download_file, download_to_excel, delete_row, display_entities, delete_entities
 from models import LanguageHour, User, File, Score, Course, Message, Log, MODELS
@@ -76,17 +76,18 @@ def home():
         current_month = date.today().month
         current_year = date.today().year
 
+        # Display input UI
         selected_month = cols[0].selectbox('Month', index=current_month, options=calendar.month_abbr)
         selected_year = cols[1].number_input('Year', value=current_year, min_value=2021, step=1)
 
         # Filter the language hour history for the current month
-        month_history = filter_monthly_hours(history, list(calendar.month_abbr).index(selected_month), int(selected_year))
-        hours_this_month = calculate_total_hours(month_history)
+        month_history_filtered = filter_monthly_hours(history, list(calendar.month_abbr).index(selected_month), int(selected_year))
+        hours_this_month = calculate_total_hours(month_history_filtered)
 
         # Fill in the PDF if there is enough data
         #if scores and hours_this_month and history_this_month:
         user = st.session_state.current_user
-        record = language_hour_history_to_string(month_history)
+        record = language_hour_history_to_string(month_history_filtered)
         if not record:
             st.info('You have not submitted any hours during the selected month.')
 
@@ -125,7 +126,7 @@ def home():
         #display_language_hours()
         if st.session_state.current_user.is_admin:
             with st.expander('Monthly Rundown'):
-                pass
+                rundown(db)
 
         with st.expander('Language Hour History', expanded=True):
             display_language_hour_history()
