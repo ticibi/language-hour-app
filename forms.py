@@ -260,11 +260,11 @@ def upload_language_hours(db):
     if not st.session_state.current_user:
         return
     with st.expander('Upload language hours'):
-        file = st.file_uploader(':green[Upload an excel file here to populate history]', type=['xlsx'])
+        file = st.file_uploader(':green[Upload an excel file here to populate history]', type=['xlsx'], help='Make sure to click the X to remove the file from the uploader once the file has been uploaded to prevent duplicates.')
         divider()
         cols = st.columns([1, 3])
         user_id = cols[0].number_input('User ID', value=st.session_state.current_user.id, step=1)
-        is_bulk = cols[0].checkbox('Bulk upload?')
+        is_bulk = cols[0].checkbox('Bulk upload?', help='This will go through each tab in the provided excel or google sheet and add the corresponding language hour entry to the user. Tab names should be formatted "Lastname, Firstname". If a user cannot be found, it will skip over them and continue. Make sure that all users with an excel tab are added to the database before bulk uploading.')
         if file:
             if is_bulk:
                 upload_bulk_excel(db, file)
