@@ -181,3 +181,10 @@ def download_database(table, engine):
         conn.close()
     return to_excel(df)
 
+def paginate_dataframe(dataframe, page_size, page_num):
+    page_size = page_size
+    if page_size is None:
+        return None
+    offset = page_size*(page_num-1)
+    return dataframe[offset:offset + page_size]
+

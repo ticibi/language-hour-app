@@ -1,8 +1,8 @@
 import streamlit as st
 from sqlalchemy import exists
-from db import get_all_users, upload_bulk_excel, get_databases, session, get_user_by_username
+from db import check_username_exists, get_table, get_database_name, get_all_users, upload_bulk_excel, get_databases, session, get_user_by_username
 from models import DBConnect, User, Course, File, Score, Log, Message, Database
-from utils import divider, read_excel
+from utils import spacer, divider, read_excel
 from datetime import datetime
 import pytz
 from extensions import db1
@@ -14,27 +14,42 @@ from config import HOST, PORT, DB_PASSWORD, DB_USERNAME
 from auth import hash_password
 
 
-def add_dbconnect_user(db):
+def add_dbconnect_user(db, engine):
+    st.write('Add user to master db')
+    cols = st.columns([1, 1, 1])
+
     databases = [d.name for d in get_databases(db)]
     databases.insert(0, 'db_1')
+    users = get_table(db1, DBConnect)
 
-    with st.form('dbconnect_form'):
-        st.write('Add user to master db')
-        cols = st.columns([1, 1, 1])
-        username = cols[0].text_input('Username:')
-        db_name = cols[0].text_input('Database:', value='db_1', disabled=True)
-        if st.form_submit_button('Submit'):
-            user_exists = db.query(exists().where(DBConnect.username==username)).scalar()
-            if user_exists:
-                st.warning('Username already exists.')
-                return
-            with session(db) as db:
-                user = DBConnect(
-                    username=username,
-                    db_id=0,
-                )
-                db.add(user)
-                st.success('User added to ')
+    username = cols[0].text_input('Username:')
+    db_name = cols[1].selectbox('Database:', index=databases.index(get_database_name(engine)),options=databases)
+    db_id = databases.index(db_name)
+
+    spacer(cols[2], 2)
+    if cols[2].button('Add user'):
+        user_exists = db.query(exists().where(DBConnect.username==username)).scalar()
+        if user_exists:
+            st.warning('Username already exists.')
+            return
+        with session(db) as db:
+            user = DBConnect(
+                username=username,
+                db_id=db_id,
+            )
+            db.add(user)
+            st.success('User added to ')
+
+    #cols = st.columns([2])
+    #cols2 = st.columns([1, 2])
+    #slider = cols2[0].slider('page', min_value=1, max_value=len(users)-1, step=1)
+    #p_df = paginate_dataframe(users, 10, slider)
+    st.dataframe(users)
+    #if st.button('Clear database'):
+    #    with session(db) as db:
+    #        db.query(DBConnect).delete()
+    #        #reset_autoincrement(db1_engine, DBConnect.__tablename__)
+    #        st.info('Deleted all DBConnect users.')    
 
 def add_database(db):
     # Declare form
@@ -67,7 +82,7 @@ def add_database(db):
 
 def add_user(db, title='Add User'):
     # Declare the form
-    st.info('Make sure to add username to master database in Database Management')
+    #st.info('Make sure to add username to master database in Database Management')
     with st.form('add_user', clear_on_submit=True):
         st.write(title)
 
@@ -86,11 +101,15 @@ def add_user(db, title='Add User'):
             is_dev = st.checkbox('is Dev?')
         if st.form_submit_button('Submit'):
 
-            # Check if the username already exists in the database
-            with session(db) as db:
-                user_exists = db.query(exists().where(User.username==username)).scalar()
-                if user_exists:
+            # Check if the username already exists in the databases
+            with session(db) as _db:
+                if check_username_exists(_db, username):
                     st.warning('A user with that username already exists.')
+                    return
+                
+            with session(db1) as _db1:
+                if check_username_exists(_db1, username):
+                    st.warning('Username already taken.')
                     return
 
             # Create the database model
@@ -104,14 +123,34 @@ def add_user(db, title='Add User'):
                 is_admin=bool(is_admin),
                 is_dev=bool(is_dev),
             )
+
+            databases = [d.name for d in get_databases(db1)]
+            databases.insert(0, 'db_1')
+            db_name = get_database_name(st.session_state.engine)
+            db_id = databases.index(db_name)
+
+            dbc_user = DBConnect(
+                username=username,
+                db_id=db_id,
+            )
             
             # Commit it to the database
-            with session(db) as db:
+            with session(db1) as _db1:
+                try:                
+                    _db1.add(dbc_user)
+                    st.info(f'User linked to {db_name}!')
+                except:
+                    st.warning(f'Failed to add user to {db_name}.')
+
+            with session(db) as _db:
                 try:
-                    db.add(user)
-                    st.success(f'User added successfully.')
+                    _db.add(user)
+                    st.success('User added successfully!')
                 except:
                     st.warning('Failed to add user.')
+
+def edit_user(db):
+    pass
 
 def add_score(db):
     # Declare the form
@@ -151,6 +190,9 @@ def add_score(db):
                 except:
                     st.warning('Failed to add score.')
 
+def edit_score(db):
+    pass
+
 def add_course(db):
     # Declare the form
     with st.form('add_course'):
@@ -183,6 +225,9 @@ def add_course(db):
                     st.success(f'Course added successfully.')
                 except:
                     st.warning('Failed to add course.')
+
+def edit_course(db):
+    pass
 
 def add_log(db, user_id, message):
     now = datetime.now(pytz.timezone("America/New_York"))

@@ -24,8 +24,9 @@ if __name__ == '__main__':
 
     # Prompt to add a user if there are none in the database
     if db1.query(DBConnect).count() < 1:
-        add_dbconnect_user(db1)
+        add_dbconnect_user(db1, db1_engine)
+    else:
 
-    navbar()
-    sidebar()
+        navbar()
+        sidebar()
 

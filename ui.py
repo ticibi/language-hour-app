@@ -6,15 +6,15 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 
 from auth import authenticate_user
-from db import rundown, get_table_names, get_user_by_id, get_databases, connect_user_to_database, get_database_name, get_user_by_username, commit_or_rollback
+from db import get_table, rundown, get_table_names, get_user_by_id, get_databases, connect_user_to_database, get_database_name, get_user_by_username, commit_or_rollback
 from utils import download_database, divider, spacer, dot_dict, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
 from comps import submit_entry, download_file, download_to_excel, delete_row, display_entities, delete_entities
-from models import LanguageHour, User, File, Score, Course, Message, Log
+from models import DBConnect, LanguageHour, User, File, Score, Course, Message, Log
 from config import MODALITIES, ADMIN_PASSWORD, ADMIN_USERNAME, CONTACT_MSG
 from load import load_user_models
 from forms import bar_graph, add_user, add_score, add_course, add_file, add_log, compose_message, upload_language_hours, add_database, add_dbconnect_user
 from components.card import card
-from extensions import db1
+from extensions import db1, db1_engine
 import calendar
 
 
@@ -140,13 +140,13 @@ def database_management():
         cols[1].download_button('Download', data=download_database(table, engine), file_name=f'{table}.xlsx', mime='application/vnd.ms-excel')
 
         divider()
-        add_dbconnect_user(db1)
+        add_dbconnect_user(db1, engine)
  
         cols = st.columns([2, 1])
         databases = [d.name for d in get_databases(db1)]
         cols[0].selectbox('Select database connection:', options=databases)
-        spacer(cols[1], len=2)
-        if cols[1].button('Select'):
+        spacer(cols[1], 2)
+        if cols[1].button('Select', disabled=True):
             pass
  
         divider()
@@ -176,6 +176,7 @@ def admin():
         return
 
     with columns[1]:
+        database_management()
         upload_language_hours(db)
 
         with st.expander('Users'):
@@ -205,8 +206,6 @@ def admin():
         with st.expander('Logs'):
             display_entities(db, Log)
  
-        database_management()
-
 def sidebar():
     if not st.session_state.session:
         return
@@ -315,8 +314,17 @@ def submit_hour():
                     else:
                         st.warning('You must fill out every field.')
 
+def global_admin():
+    # Display global admin page
+    with st.expander('Global Admin', expanded=True):
+        add_database(db1)
+        add_dbconnect_user(db1, db1_engine)
+        delete_entities(db1)
+        users = get_table(db1, DBConnect)
+        st.table(users)
+
 def login():
-    db = st.session_state.session
+    db = st.session_state.session if st.session_state.session else db1
     columns = st.columns([1, 1, 1])
     # Display Login view
     if not st.session_state.authenticated:
@@ -330,9 +338,8 @@ def login():
                 if form.form_submit_button('Login'):
                     if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
                         # Display global admin page
-                        # Add databases
-                        # Add dbconnect users
-                        pass
+                        global_admin()
+                        return    
                     
                     elif username and password:
                         db = connect_user_to_database(username)
