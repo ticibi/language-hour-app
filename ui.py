@@ -12,7 +12,7 @@ from comps import submit_entry, download_file, download_to_excel, delete_row, di
 from models import DBConnect, LanguageHour, User, File, Score, Course, Message, Log
 from config import MODALITIES, ADMIN_PASSWORD, ADMIN_USERNAME, CONTACT_MSG
 from load import load_user_models
-from forms import bar_graph, add_user, add_score, add_course, add_file, add_log, compose_message, upload_language_hours, add_database, add_dbconnect_user
+from forms import edit_user, edit_course, edit_score, bar_graph, add_user, add_score, add_course, add_file, add_log, compose_message, upload_language_hours, add_database, add_dbconnect_user
 from components.card import card
 from extensions import db1, db1_engine
 import calendar
@@ -181,6 +181,7 @@ def admin():
 
         with st.expander('Users'):
             add_user(db)
+            edit_user(db)
             display_entities(db, User, exclude=['password_hash'])
 
         with st.expander('Score'):

@@ -70,7 +70,7 @@ def delete_entities(db):
 
             # Inform the user that the table has been deleted
             st.info(f'Auto-increment for {cls.__tablename__} has been reset.')
-    
+
 def display_entities(db, cls, user_id=None, exclude=[]):
     if user_id:
         entities = db.query(cls).filter(cls.user_id == user_id).all()
@@ -83,6 +83,7 @@ def display_entities(db, cls, user_id=None, exclude=[]):
     df = pd.concat(data)
     if exclude:
         df = df.drop(columns=exclude)
+    df = df.set_index('id')
     st.dataframe(df, use_container_width=True)
 
 def reset_entity_id(db, cls):
@@ -142,7 +143,7 @@ def render_html(file: str):
         html = f.read()
         st.markdown(html, unsafe_allow_html=True)
 
-#def create_entity_form(db, cls, exclude=['id']):
+def create_entity_form(db, cls, exclude=['id']):
 #    with st.form(f'create_{cls.__name__}_form'):
 #        st.write(f'Add {cls.__name__}')
 #        for column in cls.__table__.columns:
@@ -157,4 +158,6 @@ def render_html(file: str):
 #            with session(db) as db:
 #                db.add(instance)
 #            st.success(f'Added {cls.__name__}!')
+    pass
+
 

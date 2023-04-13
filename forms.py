@@ -101,17 +101,6 @@ def add_user(db, title='Add User'):
             is_dev = st.checkbox('is Dev?')
         if st.form_submit_button('Submit'):
 
-            # Check if the username already exists in the databases
-            with session(db) as _db:
-                if check_username_exists(_db, username):
-                    st.warning('A user with that username already exists.')
-                    return
-                
-            with session(db1) as _db1:
-                if check_username_exists(_db1, username):
-                    st.warning('Username already taken.')
-                    return
-
             # Create the database model
             user = User(
                 first_name=first_name,
@@ -133,31 +122,69 @@ def add_user(db, title='Add User'):
                 username=username,
                 db_id=db_id,
             )
-            
-            # Commit it to the database
-            with session(db1) as _db1:
-                try:                
-                    _db1.add(dbc_user)
-                    st.info(f'User linked to {db_name}!')
-                except:
-                    st.warning(f'Failed to add user to {db_name}.')
 
+            # Check if the username already exists in the databases
             with session(db) as _db:
+                if check_username_exists(_db, username):
+                    st.warning('A user with that username already exists.')
+                    return
                 try:
                     _db.add(user)
                     st.success('User added successfully!')
                 except:
                     st.warning('Failed to add user.')
-
+                
+            with session(db1) as _db1:
+                if check_username_exists(_db1, username):
+                    return
+                try:                
+                    _db1.add(dbc_user)
+                    st.info(f'User linked to {db_name}!')
+                except:
+                    st.warning(f'Failed to add user to {db_name}.')
+            
 def edit_user(db):
-    pass
+    st.write('Edit user: ')
+    # Get the user model
+    users = [d.username for d in get_all_users(db)]
+    username = st.selectbox('Username', options=users)
+    user = get_user_by_username(db, username)
+
+    # Create input fields with user
+    first_name = st.text_input('First name', value=user.first_name)
+    middle_initial = st.text_input('Middle initial', value=user.middle_initial)
+    last_name = st.text_input('Last name', value=user.last_name)
+    # password = st.text_input('Password', value=user.password_hash, type='password')
+    email = st.text_input('Email (optional)', value=user.email)
+    is_admin = st.checkbox('is Admin?', value=bool(user.is_admin))
+    is_dev = st.checkbox('is Dev?', value=bool(user.is_dev))
+
+    if st.button('Save changes', key='save_user_update'):
+        with session(db) as _db:
+            user = db.query(User).get(user.id)
+            if user is None:
+                st.warning('User not found.')
+            if user.first_name != first_name:
+                user.first_name = first_name
+            if user.middle_initial != middle_initial:
+                user.middle_initial = middle_initial
+            if user.last_name != last_name:
+                user.last_name = last_name
+            if user.email != email:
+                user.email = email
+            if bool(user.is_admin) != bool(is_admin):
+                user.is_admin = bool(is_admin)
+            if bool(user.is_dev) != bool(is_dev):
+                user.is_dev = bool(is_dev)
+            st.info('Updated user info.')
+            _db.commit()
+            _db.close()
 
 def add_score(db):
     # Declare the form
     with st.form('add_score'):
         st.write('Add Score')
 
-        # Create input fields
         #username = st.text_input('Username', value=st.session_state.current_user.username)
         users = [u.username for u in get_all_users(db)]
         username = st.selectbox('Username', options=users)
@@ -170,6 +197,9 @@ def add_score(db):
         if st.form_submit_button('Submit'):
 
             user = get_user_by_username(db, username)
+            if not user:
+                st.warning('User not found.')
+                return
 
             # Create the database model
             score = Score(
