@@ -248,7 +248,6 @@ def get_user_language_hours(db, user_id):
             data.append(dot_dict(item.to_dict()))
         return data
 
-
 def rundown(db):
     current_month = date.today().month
     current_year = date.today().year
@@ -278,5 +277,8 @@ def rundown(db):
             data.append(info)
 
         df = pd.DataFrame(data).set_index('user')
+        if df.empty:
+            st.info('There is no data to show.')
+            return
         st.dataframe(df, use_container_width=False)
 

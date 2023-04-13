@@ -79,7 +79,7 @@ def calculate_required_hours(score_data):
         return 12
     elif (listening == '2' and reading in ['2', '2+']) or (reading == '2' and listening in ['2', '2+']):
         return 8
-    elif (listening in ['2', '2+'] and reading in ['2+', '3']) or (listening in ['2', '2+'] and reading in ['2+', '3']):
+    elif (listening in ['2', '2+'] and reading in ['2+', '3']) or (listening in ['2+', '3'] and reading in ['2', '2+']) or (listening in ['3'] and reading in ['2+']) or (listening in ['2+'] and reading in ['3']):
         return 6
     elif listening in ['3', '3+', '4'] and reading in ['3', '3+', '4']:
         return 4
@@ -175,7 +175,9 @@ def create_pdf(data_fields):
     return output_buffer
 
 def download_database(table, engine):
-    df = pd.read_sql_table(table, engine.connect())
-    #df.to_excel(f"{table}.xlsx", engine='openpyxl', index=False)
+    with engine.connect() as conn:
+        df = pd.read_sql_table(table, conn)
+        #df.to_excel(f"{table}.xlsx", engine='openpyxl', index=False)
+        conn.close()
     return to_excel(df)
 

@@ -9,7 +9,7 @@ from auth import authenticate_user
 from db import rundown, get_table_names, get_user_by_id, get_databases, connect_user_to_database, get_database_name, get_user_by_username, commit_or_rollback
 from utils import download_database, divider, spacer, dot_dict, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
 from comps import submit_entry, download_file, download_to_excel, delete_row, display_entities, delete_entities
-from models import LanguageHour, User, File, Score, Course, Message, Log, MODELS
+from models import LanguageHour, User, File, Score, Course, Message, Log
 from config import MODALITIES, ADMIN_PASSWORD, ADMIN_USERNAME, CONTACT_MSG
 from load import load_user_models
 from forms import bar_graph, add_user, add_score, add_course, add_file, add_log, compose_message, upload_language_hours, add_database, add_dbconnect_user
@@ -121,9 +121,6 @@ def home():
 
     columns = st.columns([1, 3, 1])
     with columns[1]:
-        # if user is admin, display their respective group's users with scores
-        # button to calculate the monthly language hours rundown
-        #display_language_hours()
         if st.session_state.current_user.is_admin:
             with st.expander('Monthly Rundown'):
                 rundown(db)
@@ -144,33 +141,34 @@ def database_management():
 
         divider()
         add_dbconnect_user(db1)
-
+ 
         cols = st.columns([2, 1])
         databases = [d.name for d in get_databases(db1)]
         cols[0].selectbox('Select database connection:', options=databases)
         spacer(cols[1], len=2)
         if cols[1].button('Select'):
             pass
-
+ 
         divider()
         delete_row(db)
-
+ 
         divider()
         delete_entities(db)
-
+ 
         divider()
         st.write('Database changes:')   
         cols = st.columns([1, 1, 1])
         if cols[0].button("Save changes"):
             commit_or_rollback(db, commit=True)
-
+ 
         if cols[1].button("Discard changes"):
             commit_or_rollback(db, commit=False)
 
 def admin():
     db = st.session_state.session
-    if st.session_state.engine:
-        db_name = get_database_name(st.session_state.engine)
+    engine = st.session_state.engine
+    if engine:
+        db_name = get_database_name(engine)
         st.sidebar.write(f'connected to: :blue[{db_name}]')
 
     columns = st.columns([1, 3, 1])
@@ -187,26 +185,26 @@ def admin():
         with st.expander('Score'):
             add_score(db)
             display_entities(db, Score)
-
+ 
         with st.expander('Course'):
             add_course(db)
             display_entities(db, Course)
-
+ 
         with st.expander('Files'):
             add_file(db)
             display_entities(db, File)
             divider()
             download_file(db)
-
+ 
         with st.expander('LanguageHours'):
             display_entities(db, LanguageHour)
-
+ 
         with st.expander('Messages'):
             display_entities(db, Message)
-
+ 
         with st.expander('Logs'):
             display_entities(db, Log)
-
+ 
         database_management()
 
 def sidebar():
