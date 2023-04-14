@@ -154,15 +154,16 @@ def database_management():
  
         divider()
         delete_entities(db)
- 
-        divider()
-        cols = st.columns([1, 1, 1])
-        tables = get_table_names(engine)
-        table = cols[0].selectbox('Select a table', key='table_select', options=tables)
-        column_name = cols[1].text_input('Column name')
-        data_type = cols[2].text_input('Date type')
-        if cols[0].button('Add Column'):
-            add_column(engine, table, column_name, data_type)
+
+        if st.session_state.current_user.is_dev:
+            divider()
+            cols = st.columns([1, 1, 1])
+            tables = get_table_names(engine)
+            table = cols[0].selectbox('Select a table', key='table_select', options=tables)
+            column_name = cols[1].text_input('Column name')
+            data_type = cols[2].text_input('Date type')
+            if cols[0].button('Add Column'):
+                add_column(engine, table, column_name, data_type)
 
         divider()
         st.write('Database changes:')   

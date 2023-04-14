@@ -232,6 +232,7 @@ def edit_score(db):
     score_id = cols[0].number_input('Score ID', step=1)
     score = get_score_by_id(db, score_id)
     if not score:
+        st.info('Score data not found.')
         return
     username = cols[2].text_input('Username', value=get_user_by(db, 'id', score.user_id).username, disabled=True)
     date = cols[1].date_input('Test Date', value=score.date)
