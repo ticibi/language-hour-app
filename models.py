@@ -99,6 +99,7 @@ class Score(Base, BaseModel):
     user_id = Column(Integer, ForeignKey('users.id'))  # Define a foreign key relationship
     langauge = Column(String(50))
     dicode = Column(String(50))
+    CL = Column(Boolean)
     listening = Column(String(5))
     reading = Column(String(5))
     speaking = Column(String(5))
@@ -119,6 +120,7 @@ class Log(Base, BaseModel):
     user_id = Column(Integer, ForeignKey('users.id'))  # Define a foreign key relationship
     message = Column(String(255))
     timestamp = Column(DateTime, default=datetime.utcnow)
+    # test = Column(Boolean)
 
 class Message(Base, BaseModel):
     __tablename__ = 'messages'

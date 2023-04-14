@@ -1,6 +1,6 @@
 import streamlit as st
 from sqlalchemy import exists
-from db import check_username_exists, get_table, get_database_name, get_all_users, upload_bulk_excel, get_databases, session, get_user_by_username
+from db import get_score_by_id, check_username_exists, get_table, get_database_name, get_all_users, upload_bulk_excel, get_databases, session, get_user_by
 from models import DBConnect, User, Course, File, Score, Log, Message, Database
 from utils import spacer, divider, read_excel
 from datetime import datetime
@@ -148,7 +148,7 @@ def edit_user(db):
     # Get the user model
     users = [d.username for d in get_all_users(db)]
     username = st.selectbox('Username', options=users)
-    user = get_user_by_username(db, username)
+    user = get_user_by(db, 'username', username)
 
     # Create input fields with user
     first_name = st.text_input('First name', value=user.first_name)
@@ -159,11 +159,11 @@ def edit_user(db):
     is_admin = st.checkbox('is Admin?', value=bool(user.is_admin))
     is_dev = st.checkbox('is Dev?', value=bool(user.is_dev))
 
-    if st.button('Save changes', key='save_user_update'):
+    if st.button('Save', key='save_edit_user'):
         with session(db) as _db:
             user = db.query(User).get(user.id)
             if user is None:
-                st.warning('User not found.')
+                st.warning('User data not found.')
             if user.first_name != first_name:
                 user.first_name = first_name
             if user.middle_initial != middle_initial:
@@ -187,16 +187,20 @@ def add_score(db):
 
         #username = st.text_input('Username', value=st.session_state.current_user.username)
         users = [u.username for u in get_all_users(db)]
-        username = st.selectbox('Username', options=users)
-        language = st.text_input('Language', value='Arabic')
-        dicode = st.selectbox('Dicode', index=0, options=DICODES)
-        listening = st.text_input('Listening Score')
-        reading = st.text_input('Reading Score')
-        speaking = st.text_input('Speaking score')
-        date = st.date_input('Date')
+        cols = st.columns([1, 1])
+        username = cols[0].selectbox('Username', options=users)
+        date = cols[1].date_input('Test Date')
+        cols = st.columns([1, 1])
+        language = cols[0].text_input('Language', value='Arabic')
+        dicode = cols[1].selectbox('Dicode', index=0, options=DICODES)
+        cl = st.checkbox('Control Language')
+        cols = st.columns([1, 1, 1])
+        listening = cols[0].text_input('Listening Score')
+        reading = cols[1].text_input('Reading Score')
+        speaking = cols[2].text_input('Speaking score')
         if st.form_submit_button('Submit'):
 
-            user = get_user_by_username(db, username)
+            user = get_user_by(db, 'username', username)
             if not user:
                 st.warning('User not found.')
                 return
@@ -206,6 +210,7 @@ def add_score(db):
                 user_id=user.id,
                 langauge=language,
                 dicode=dicode,
+                CL=bool(cl),
                 listening=listening,
                 reading=reading,
                 speaking=speaking,
@@ -221,7 +226,48 @@ def add_score(db):
                     st.warning('Failed to add score.')
 
 def edit_score(db):
-    pass
+    st.write('Edit Score by Score ID')
+    # Load score data
+    cols = st.columns([1, 1, 1])
+    score_id = cols[0].number_input('Score ID', step=1)
+    score = get_score_by_id(db, score_id)
+    if not score:
+        return
+    username = cols[2].text_input('Username', value=get_user_by(db, 'id', score.user_id).username, disabled=True)
+    date = cols[1].date_input('Test Date', value=score.date)
+    cols = st.columns([1, 1, 1])
+    language = cols[0].text_input('Language', value=score.langauge)
+    dicode = cols[1].selectbox('Dicode', index=0, options=DICODES)
+    spacer(cols[2], 2)
+    cl = cols[2].checkbox('Control Language', value=bool(score.CL) if score.CL else False)
+    cols = st.columns([1, 1, 1])
+    listening = cols[0].text_input('Listening Score', value=score.listening)
+    reading = cols[1].text_input('Reading Score', value=score.reading)
+    speaking = cols[2].text_input('Speaking score', value=score.speaking)
+    if st.button('Save', key='save_edit_score'):
+        with session(db) as _db:
+            score = db.query(Score).get(score_id)
+            if score is None:
+                st.warning('Score data not found.')
+                return
+            if score.date != date:
+                score.date = date
+            if score.langauge != language:
+                score.langauge = language
+            if score.dicode != dicode:
+                score.dicode = dicode
+            if bool(score.CL) != bool(cl):
+                score.CL = bool(cl)
+            if score.listening != listening:
+                score.listening = listening
+            if score.reading != reading:
+                score.reading = reading
+            if score.speaking != speaking:
+                score.speaking = speaking
+            st.info('Updated score info.')
+            _db.commit()
+            _db.close()
+            
 
 def add_course(db):
     # Declare the form
@@ -237,7 +283,7 @@ def add_course(db):
         end_date = st.date_input('End Date')
         if st.form_submit_button('Submit'):
 
-            user_id = get_user_by_username(db, username)
+            user_id = get_user_by(db, 'username', username)
             # Create the database model
             course = Course(
                 user_id=user_id,
@@ -297,8 +343,12 @@ def compose_message(db, user_id):
     # Declare the form
     with st.form('compose_message', clear_on_submit=True):
 
+        users = get_all_users(db)
+        names = [f'{x.last_name}, {x.first_name} ({x.username})' for x in users]
+        usernames = [x.username for x in users]
+        
         # Create input fields
-        recipient = st.text_input('Recipient Username')
+        recipient = st.selectbox('Recipient', index=2, options=names)
         content = st.text_area('Message Content', max_chars=250)
         if st.form_submit_button('Send'):
             if not recipient:
@@ -308,7 +358,8 @@ def compose_message(db, user_id):
                 st.warning('Message cannot not be blank.')
 
             # Check if recipient is valid and get recipient ID
-            user = get_user_by_username(db, recipient)
+            recipient_index = names.index(recipient)
+            user = get_user_by(db, 'username', usernames[recipient_index])
             if not user:
                 st.warning('Could not find recipient.')
                 return
@@ -327,7 +378,7 @@ def compose_message(db, user_id):
             with session(db) as db:
                 try:
                     db.add(message)
-                    st.success('Message sent successfully.')
+                    st.success(f'Message sent to {usernames[recipient_index]}')
                 except:
                     st.warning('Failed to send message.')
         

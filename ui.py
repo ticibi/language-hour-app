@@ -6,7 +6,7 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 
 from auth import authenticate_user
-from db import get_table, rundown, get_table_names, get_user_by_id, get_databases, connect_user_to_database, get_database_name, get_user_by_username, commit_or_rollback
+from db import add_column, get_table, rundown, get_table_names, get_user_by, get_databases, connect_user_to_database, get_database_name, commit_or_rollback
 from utils import download_database, divider, spacer, dot_dict, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
 from comps import submit_entry, download_file, download_to_excel, delete_row, display_entities, delete_entities
 from models import DBConnect, LanguageHour, User, File, Score, Course, Message, Log
@@ -156,6 +156,15 @@ def database_management():
         delete_entities(db)
  
         divider()
+        cols = st.columns([1, 1, 1])
+        tables = get_table_names(engine)
+        table = cols[0].selectbox('Select a table', key='table_select', options=tables)
+        column_name = cols[1].text_input('Column name')
+        data_type = cols[2].text_input('Date type')
+        if cols[0].button('Add Column'):
+            add_column(engine, table, column_name, data_type)
+
+        divider()
         st.write('Database changes:')   
         cols = st.columns([1, 1, 1])
         if cols[0].button("Save changes"):
@@ -186,6 +195,7 @@ def admin():
 
         with st.expander('Score'):
             add_score(db)
+            edit_score(db)
             display_entities(db, Score)
  
         with st.expander('Course'):
@@ -225,7 +235,7 @@ def sidebar():
         with st.expander('My Messages 📬', expanded=True):
             if st.session_state.current_user_data.Message:
                 for message in st.session_state.current_user_data.Message:
-                    sender = get_user_by_id(db, message.sender_id)
+                    sender = get_user_by(db, 'id', message.sender_id)
                     if sender:
                         sender = dot_dict(sender)
                         timestamp = message.timestamp.astimezone(pytz.timezone('US/Eastern')).strftime('%m-%d-%Y')
@@ -348,7 +358,7 @@ def login():
                             st.warning('User not found.')
                             return
 
-                        user = get_user_by_username(db, username)
+                        user = get_user_by(db, 'username', username)
                         if not user:
                             st.warning('Could not find user.')
                             return

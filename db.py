@@ -3,7 +3,7 @@ from extensions import Base, db1
 import streamlit as st
 from models import User, DBConnect, LanguageHour, Score
 from contextlib import contextmanager
-from sqlalchemy import create_engine, MetaData, exists, and_
+from sqlalchemy import create_engine, MetaData, exists, and_, text
 from sqlalchemy.engine.url import make_url
 from config import HOST, DB_USERNAME, DB_PASSWORD, CONNECTOR
 from models import Database
@@ -92,30 +92,31 @@ def commit_or_rollback(db, commit: bool):
             st.warning("Changes rolled back.")
 
 def get_all_users(db):
-    '''returns user model as a dot dictionary'''
+    '''returns all user models as dot dict'''
     with session(db) as db:
         results = db.query(User).all()
         data = []
         for item in results:
             data.append(dot_dict(item.to_dict()))
         return data
-
-def get_user_by_username(db, username):
-    '''returns user model as a dot dictionary'''
-    with session(db) as _db:
-        result = _db.query(User).filter(User.username==username).first()
+    
+def get_score_by_id(db, id):
+    '''returns all user models as dot dict'''
+    with session(db) as db:
+        result = db.query(Score).get(id)
         return dot_dict(result.to_dict()) if result else None
 
-def get_user_by_name(db, last_name):
-    '''returns user model as a dot dictionary'''
+def get_user_by(db, selector, value):
+    '''returns user model as dot dict based on selector type: username, last_name, or id'''
     with session(db) as _db:
-        result = _db.query(User).filter(User.last_name==last_name).first()
-        return dot_dict(result.to_dict()) if result else None
-
-def get_user_by_id(db, id):
-    '''returns user model as a dot dictionary'''
-    with session(db) as _db:
-        result = _db.query(User).filter(User.id==id).first()
+        if selector == 'username':
+            result = _db.query(User).filter(User.username==value).first()
+        elif selector == 'last_name':
+            result = _db.query(User).filter(User.last_name==value).first()
+        elif selector == 'id':
+            result = _db.query(User).filter(User.id==value).first()
+        else:
+            return None
         return dot_dict(result.to_dict()) if result else None
 
 def reset_autoincrement(engine, table_name):
@@ -153,25 +154,6 @@ def clear_db(engine) -> bool:
         print(f"Error dropping tables: {e}")
         return False
 
-def edit_user(db, user_id: int, name: str = None, username: str = None, password: str = None, is_admin: bool = None, email: str = None, group_id: int = None) -> bool:
-    with session(db) as db:
-        user = db.query(User).filter(User.id == user_id).first()
-        if user:
-            if name:
-                user.name = name
-            if username:
-                user.username = username
-            if password:
-                user.password_hash = password
-            if is_admin is not None:
-                user.is_admin = is_admin
-            if email:
-                user.email = email
-            if group_id:
-                user.group_id = group_id
-            return True
-        return False
-
 def get_databases(db):
     with session(db) as db:
         results = db.query(Database).all()
@@ -183,10 +165,9 @@ def get_databases(db):
 def get_table(db, table):
     with session(db) as db:
         results = db.query(table).all()
-
         df = pd.DataFrame([item.to_dict() for item in results])
         return df
-    
+
 def get_database_tables(engine):
     # create a metadata object and reflect the database schema
     metadata = MetaData()
@@ -282,3 +263,14 @@ def rundown(db):
             return
         st.dataframe(df, use_container_width=False)
 
+def add_column(engine, table, column_name, data_type):
+    connection = engine.connect()
+    statement = text(f'ALTER TABLE {table} ADD COLUMN {column_name} {data_type}')
+    try:
+        connection.execute(statement)
+        print(f'Added column "{column_name} ({data_type})" to {table}')
+        st.info(f'Added column "{column_name} ({data_type})" to {table}')
+    except:
+        print(f'Failed to add column to {table}')
+        st.warning(f'Failed to add column to {table}')
+    connection.close()
