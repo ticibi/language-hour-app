@@ -84,7 +84,6 @@ def add_user(db, title='Add User'):
     # Declare the form
     #st.info('Make sure to add username to master database in Database Management')
     with st.form('add_user', clear_on_submit=True):
-        st.write(title)
 
         # Create input fields
         first_name = st.text_input('First name')
@@ -144,7 +143,6 @@ def add_user(db, title='Add User'):
                     st.warning(f'Failed to add user to {db_name}.')
             
 def edit_user(db):
-    st.write('Edit user: ')
     # Get the user model
     users = [d.username for d in get_all_users(db)]
     username = st.selectbox('Username', options=users)
@@ -183,8 +181,6 @@ def edit_user(db):
 def add_score(db):
     # Declare the form
     with st.form('add_score'):
-        st.write('Add Score')
-
         #username = st.text_input('Username', value=st.session_state.current_user.username)
         users = [u.username for u in get_all_users(db)]
         cols = st.columns([1, 1])
@@ -226,26 +222,26 @@ def add_score(db):
                     st.warning('Failed to add score.')
 
 def edit_score(db):
-    st.write('Edit Score by Score ID')
     # Load score data
     cols = st.columns([1, 1, 1])
-    score_id = cols[0].number_input('Score ID', step=1)
+    score_id = cols[0].number_input('Enter score row ID for data to populate:', step=1)
     score = get_score_by_id(db, score_id)
     if not score:
         st.info('Score data not found.')
         return
-    username = cols[2].text_input('Username', value=get_user_by(db, 'id', score.user_id).username, disabled=True)
+    cols = st.columns([1, 1, 1])
+    username = cols[0].text_input('Username', value=get_user_by(db, 'id', score.user_id).username, disabled=True)
     date = cols[1].date_input('Test Date', value=score.date)
     cols = st.columns([1, 1, 1])
     language = cols[0].text_input('Language', value=score.langauge)
     dicode = cols[1].selectbox('Dicode', index=0, options=DICODES)
     spacer(cols[2], 2)
-    cl = cols[2].checkbox('Control Language', value=bool(score.CL) if score.CL else False)
+    cl = cols[2].checkbox('is this the user\'s Control Language?', value=bool(score.CL) if score.CL else False)
     cols = st.columns([1, 1, 1])
     listening = cols[0].text_input('Listening Score', value=score.listening)
     reading = cols[1].text_input('Reading Score', value=score.reading)
     speaking = cols[2].text_input('Speaking score', value=score.speaking)
-    if st.button('Save', key='save_edit_score'):
+    if st.button('Save changes', key='save_edit_score'):
         with session(db) as _db:
             score = db.query(Score).get(score_id)
             if score is None:
@@ -272,10 +268,8 @@ def edit_score(db):
 def add_course(db):
     # Declare the form
     with st.form('add_course'):
-        st.write('Add Course')
-
         # Create input fields
-        username = st.text_input('Username')
+        username = st.selectbox('Username', options=[x.username for x in get_all_users(db)])
         course_name = st.text_input('Course Name')
         course_code = st.text_input('Course Code')
         course_length = st.number_input('Course Length (hours)', step=1)
@@ -317,7 +311,6 @@ def add_log(db, user_id, message):
 
 def add_file(db):
     # Create the file upload form
-    st.write('Upload a file')
     file = st.file_uploader('Choose a file', type=['txt', 'pdf', 'png', 'jpg', 'jpeg'])
 
     if file is not None:
@@ -386,11 +379,11 @@ def upload_language_hours(db):
     if not st.session_state.current_user:
         return
     with st.expander('Upload language hours'):
-        file = st.file_uploader(':green[Upload an excel file here to populate history]', type=['xlsx'], help='Make sure to click the X to remove the file from the uploader once the file has been uploaded to prevent duplicates.')
-        divider()
-        cols = st.columns([1, 3])
-        user_id = cols[0].number_input('User ID', value=st.session_state.current_user.id, step=1)
-        is_bulk = cols[0].checkbox('Bulk upload?', help='This will go through each tab in the provided excel or google sheet and add the corresponding language hour entry to the user. Tab names should be formatted "Lastname, Firstname". If a user cannot be found, it will skip over them and continue. Make sure that all users with an excel tab are added to the database before bulk uploading.')
+        file = st.file_uploader(':green[Upload an excel file here to populate history. **Make sure the file is removed from the uploader after submitting.**]', type=['xlsx'], help='Make sure to click the X to remove the file from the uploader once the file has been uploaded to prevent duplicates.')
+        cols = st.columns([1, 1, 1])
+        user_id = cols[0].number_input('Enter ID of user the data will be added to:', value=st.session_state.current_user.id, step=1)
+        spacer(cols[1], 2)
+        is_bulk = cols[1].checkbox('Bulk upload?', help='This will go through each tab in the provided excel or google sheet and add the corresponding language hour entry to the user. Tab names should be formatted "Lastname, Firstname". If a user cannot be found, it will skip over them and continue. Make sure that all users with an excel tab are added to the database before bulk uploading.')
         if file:
             if is_bulk:
                 upload_bulk_excel(db, file)

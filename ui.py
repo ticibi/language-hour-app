@@ -200,17 +200,25 @@ def admin():
         upload_language_hours(db)
 
         with st.expander('Users'):
+            header('Add new user:')
             add_user(db)
+            header('Edit existing user:')
             edit_user(db)
+            header('User table:')
             display_entities(db, User, exclude=['password_hash'])
 
         with st.expander('Score'):
+            header('Add new score:')
             add_score(db)
+            header('Edit existing score:')
             edit_score(db)
+            header('Score table:')
             display_entities(db, Score)
  
         with st.expander('Course'):
+            header('Add new course:')
             add_course(db)
+            header('Course table:')
             display_entities(db, Course)
  
         with st.expander('Files'):
