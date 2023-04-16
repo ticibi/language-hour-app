@@ -15,7 +15,6 @@ from auth import hash_password
 
 
 def add_dbconnect_user(db, engine):
-    st.write('Add user to master db')
     cols = st.columns([1, 1, 1])
 
     databases = [d.name for d in get_databases(db)]
@@ -23,7 +22,7 @@ def add_dbconnect_user(db, engine):
     users = get_table(db1, DBConnect)
 
     username = cols[0].text_input('Username:')
-    db_name = cols[1].selectbox('Database:', index=databases.index(get_database_name(engine)),options=databases)
+    db_name = cols[1].selectbox('Assigned database:', index=databases.index(get_database_name(engine)),options=databases)
     db_id = databases.index(db_name)
 
     spacer(cols[2], 2)
@@ -44,7 +43,8 @@ def add_dbconnect_user(db, engine):
     #cols2 = st.columns([1, 2])
     #slider = cols2[0].slider('page', min_value=1, max_value=len(users)-1, step=1)
     #p_df = paginate_dataframe(users, 10, slider)
-    st.dataframe(users)
+    df = pd.DataFrame(users).set_index('id')
+    st.dataframe(df)
     #if st.button('Clear database'):
     #    with session(db) as db:
     #        db.query(DBConnect).delete()
@@ -269,7 +269,6 @@ def edit_score(db):
             _db.commit()
             _db.close()
             
-
 def add_course(db):
     # Declare the form
     with st.form('add_course'):
@@ -349,7 +348,7 @@ def compose_message(db, user_id):
         usernames = [x.username for x in users]
         
         # Create input fields
-        recipient = st.selectbox('Recipient', index=2, options=names)
+        recipient = st.selectbox('Recipient', index=0, options=names)
         content = st.text_area('Message Content', max_chars=250)
         if st.form_submit_button('Send'):
             if not recipient:

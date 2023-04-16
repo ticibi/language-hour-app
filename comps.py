@@ -33,10 +33,9 @@ def download_file(db):
             pass
 
 def delete_row(db):
-    st.write('Delete row in selected table by ID: ')
     cols = st.columns([1, 1, 1])
-    id = cols[0].number_input('ID', step=1)
-    class_name = cols[1].selectbox('Table', index=len(MODELS)-1, options=MODELS)
+    id = cols[0].number_input('Row ID', step=1)
+    class_name = cols[1].selectbox('Table Name', index=len(MODELS)-1, options=MODELS)
     cls = TABLE[class_name]
     count = db.query(cls).count()
     data = db.query(cls).filter_by(id=id).first()

@@ -36,3 +36,12 @@ BG_COLOR_DARK = '#0E1117'
 BG_COLOR_LIGHT = '#262730'
 
 CONTACT_MSG = 'Please contact an LTM to update your profile.'
+
+DATATYPES = [
+    'STRING',
+    'INTEGER',
+    'BOOLEAN',
+    'DATE', 
+    'DATETIME',
+    'LARGEBINARY'
+]

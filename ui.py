@@ -6,11 +6,11 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 
 from auth import authenticate_user
-from db import add_column, get_table, rundown, get_table_names, get_user_by, get_databases, connect_user_to_database, get_database_name, commit_or_rollback
-from utils import download_database, divider, spacer, dot_dict, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
+from db import test_db_connection, add_column, get_table, rundown, get_table_names, get_user_by, get_databases, connect_user_to_database, get_database_name, commit_or_rollback
+from utils import header, download_database, divider, spacer, dot_dict, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
 from comps import submit_entry, download_file, download_to_excel, delete_row, display_entities, delete_entities
 from models import DBConnect, LanguageHour, User, File, Score, Course, Message, Log
-from config import MODALITIES, ADMIN_PASSWORD, ADMIN_USERNAME, CONTACT_MSG
+from config import MODALITIES, ADMIN_PASSWORD, ADMIN_USERNAME, CONTACT_MSG, DATATYPES
 from load import load_user_models
 from forms import edit_user, edit_course, edit_score, bar_graph, add_user, add_score, add_course, add_file, add_log, compose_message, upload_language_hours, add_database, add_dbconnect_user
 from components.card import card
@@ -133,45 +133,55 @@ def database_management():
     db = st.session_state.session
     engine = st.session_state.engine
     with st.expander('Database Management'):
-        st.write('Download database to excel:')
+        header('Download data to Excel:')
         cols = st.columns([1, 1, 1])
         table = cols[0].selectbox('Select a table: ', options=get_table_names(engine))
         spacer(cols[1], 2)
         cols[1].download_button('Download', data=download_database(table, engine), file_name=f'{table}.xlsx', mime='application/vnd.ms-excel')
 
         divider()
+        header('Master Database Users:')
         add_dbconnect_user(db1, engine)
  
-        cols = st.columns([2, 1])
+        divider()
+        header('Test Database Connectivity:')
+        cols = st.columns([1, 1, 1])
         databases = [d.name for d in get_databases(db1)]
-        cols[0].selectbox('Select database connection:', options=databases)
+        cols[0].selectbox('Select database:', options=databases)
         spacer(cols[1], 2)
-        if cols[1].button('Select', disabled=True):
-            pass
+        if cols[1].button('Test Connection'):
+            if test_db_connection(engine):
+                st.info(f'Connection to {get_database_name(engine)} is good!')
+            else:
+                st.warning(f'Connection {get_database_name(engine)} was bad :()')
  
         divider()
+        header('Delete data from table:')
         delete_row(db)
  
         divider()
+        header('Delete data from table:')
         delete_entities(db)
 
         if st.session_state.current_user.is_dev:
             divider()
+            header('Add new data field to to table:')
             cols = st.columns([1, 1, 1])
             tables = get_table_names(engine)
             table = cols[0].selectbox('Select a table', key='table_select', options=tables)
-            column_name = cols[1].text_input('Column name')
-            data_type = cols[2].text_input('Date type')
+            column_name = cols[1].text_input('Field name')
+            data_type = cols[2].selectbox('Datae type:', options=DATATYPES)
+            cols[0].write(f':red[]')
             if cols[0].button('Add Column'):
                 add_column(engine, table, column_name, data_type)
 
         divider()
-        st.write('Database changes:')   
+        header('Database changes:')
         cols = st.columns([1, 1, 1])
-        if cols[0].button("Save changes"):
+        if cols[0].button("Save database changes"):
             commit_or_rollback(db, commit=True)
  
-        if cols[1].button("Discard changes"):
+        if cols[1].button("Discard database changes"):
             commit_or_rollback(db, commit=False)
 
 def admin():

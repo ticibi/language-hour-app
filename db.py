@@ -135,7 +135,7 @@ def delete_row_by_id(db, cls, id):
 def change_database_connection(db_name, username=DB_USERNAME, password=DB_PASSWORD, host=HOST):
     return create_engine(f'mysql+pymysql://{username}:{password}@{host}/{db_name}')
 
-def test_db(engine):
+def test_db_connection(engine):
     try:
         conn = engine.connect()
         print('Connection successful!')
