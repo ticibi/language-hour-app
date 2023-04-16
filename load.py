@@ -3,8 +3,8 @@ from models import MODELS, TABLE
 from db import session
 from utils import dot_dict
 
-
-def load_user_models(db, user_id) -> dict:
+@st.cache_data
+def load_user_models(_db, user_id) -> dict:
     user_data = {}
     for model_name in MODELS:
         # User model has already been loaded into st.session_state
@@ -16,13 +16,13 @@ def load_user_models(db, user_id) -> dict:
             if not st.session_state.current_user.is_admin:
                 continue
         model = TABLE[model_name]
-        with session(db) as db:
+        with session(_db) as _db:
             # Message model does not contain a user_id field
             # instead, use the recipient_id field
             if model_name == 'Message':
-                data = db.query(model).filter_by(recipient_id=user_id).all()
+                data = _db.query(model).filter_by(recipient_id=user_id).all()
             else:
-                data = db.query(model).filter_by(user_id=user_id).all()
+                data = _db.query(model).filter_by(user_id=user_id).all()
             data_list = []
             # Populating the data into a dot dict
             for item in data:

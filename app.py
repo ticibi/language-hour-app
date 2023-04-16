@@ -17,6 +17,7 @@ initialize_session_state_variables(SESSION_VARIABLES)
 
 if __name__ == '__main__':
 
+    
     # Connect to the 'master' database to get the connection information for the appropriate database
     db1 = create_session(db1_engine)
     db_name = get_database_name(db1_engine)

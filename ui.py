@@ -6,7 +6,7 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 
 from auth import authenticate_user
-from db import test_db_connection, add_column, get_table, rundown, get_table_names, get_user_by, get_databases, connect_user_to_database, get_database_name, commit_or_rollback
+from db import get_all_users, lowdown, test_db_connection, add_column, get_table, rundown, get_table_names, get_user_by, get_databases, connect_user_to_database, get_database_name, commit_or_rollback
 from utils import header, download_database, divider, spacer, dot_dict, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
 from comps import submit_entry, download_file, download_to_excel, delete_row, display_entities, delete_entities
 from models import DBConnect, LanguageHour, User, File, Score, Course, Message, Log
@@ -16,7 +16,9 @@ from forms import edit_user, edit_course, edit_score, bar_graph, add_user, add_s
 from components.card import card
 from extensions import db1, db1_engine
 import calendar
-
+from load import load_user_models
+import pandas as pd
+import datetime
 
 def admin_access_warning(cols=st.columns):
     if access_warning(cols=cols):
@@ -54,6 +56,7 @@ def test_zone():
 def home():
     db = st.session_state.session
     columns = st.columns([1, 3, 1])
+
     if not access_warning(columns):
         return
     
@@ -122,8 +125,41 @@ def home():
     columns = st.columns([1, 3, 1])
     with columns[1]:
         if st.session_state.current_user.is_admin:
-            with st.expander('Monthly Rundown'):
+            with st.expander('Monthly Rundown (admin)'):
                 rundown(db)
+
+            with st.expander('Search Users (admin)'):
+                def highlight_row(row):
+                    today = datetime.date.today()
+                    delta = datetime.timedelta(days=60)
+                    due_date = row.date + datetime.timedelta(days=365)
+                    prior = due_date - delta
+                    diff = due_date - today
+                    if today >= prior:
+                        st.write(f':orange[{row.dicode} DLPT coming due in **{diff.days}** days]')
+                        return ['background-color: rgba(255, 227, 18, 0.2)'] * len(row)
+                    return [''] * len(row) 
+
+                users = get_all_users(db)
+                cols = st.columns([1, 1, 1])
+                username = cols[0].selectbox('Select a user:', options=[u.username for u in users])
+                spacer(cols[1], 2)
+                if cols[1].button('Search'):
+                    user = get_user_by(db, 'username', username)
+                    models = load_user_models(db, user.id)
+                    keys = list(models.keys())
+                    for i, model in enumerate(models.values()):
+                        if keys[i] in ['Log', 'Message']: # don't really care about displaying these tables
+                            continue
+                        header(keys[i])
+                        df = pd.DataFrame(model)
+                        if not df.empty:
+                            df = df.set_index('id')
+                            if keys[i] == 'Score':
+                                df = df.style.apply(highlight_row, axis=1)
+                            st.dataframe(df)
+                        else:
+                            st.info(f'User does not have {keys[i]} data.')
 
         with st.expander('Language Hour History', expanded=True):
             display_language_hour_history()
@@ -246,6 +282,7 @@ def sidebar():
         return
 
     with st.sidebar:
+        st.markdown(f'Welcome {st.session_state.current_user.first_name} 👋')
         st.subheader('Message Center')
         # Display message center
         with st.expander('Compose Message 📝'):

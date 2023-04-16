@@ -91,10 +91,11 @@ def commit_or_rollback(db, commit: bool):
             db.rollback()
             st.warning("Changes rolled back.")
 
-def get_all_users(db):
+@st.cache_data
+def get_all_users(_db):
     '''returns all user models as dot dict'''
-    with session(db) as db:
-        results = db.query(User).all()
+    with session(_db) as _db:
+        results = _db.query(User).all()
         data = []
         for item in results:
             data.append(dot_dict(item.to_dict()))
@@ -106,9 +107,10 @@ def get_score_by_id(db, id):
         result = db.query(Score).get(id)
         return dot_dict(result.to_dict()) if result else None
 
-def get_user_by(db, selector, value):
+@st.cache_data
+def get_user_by(_db, selector, value):
     '''returns user model as dot dict based on selector type: username, last_name, or id'''
-    with session(db) as _db:
+    with session(_db) as _db:
         if selector == 'username':
             result = _db.query(User).filter(User.username==value).first()
         elif selector == 'last_name':
@@ -154,24 +156,27 @@ def clear_db(engine) -> bool:
         print(f"Error dropping tables: {e}")
         return False
 
-def get_databases(db):
-    with session(db) as db:
-        results = db.query(Database).all()
+@st.cache_data
+def get_databases(_db):
+    with session(_db) as _db:
+        results = _db.query(Database).all()
         data = []
         for item in results:
             data.append(dot_dict(item.to_dict()))
         return data
 
-def get_table(db, table):
-    with session(db) as db:
-        results = db.query(table).all()
+@st.cache_data
+def get_table(_db, table):
+    with session(_db) as _db:
+        results = _db.query(table).all()
         df = pd.DataFrame([item.to_dict() for item in results])
         return df
 
-def get_database_tables(engine):
+@st.cache_data
+def get_database_tables(_engine):
     # create a metadata object and reflect the database schema
     metadata = MetaData()
-    metadata.reflect(bind=engine)
+    metadata.reflect(bind=_engine)
 
     # get a list of all table names in the database
     return metadata.tables.keys()
@@ -206,14 +211,14 @@ def upload_bulk_excel(db, file):
         st.info(f'added all entries from {sheet}')
     st.success('Finished adding all entries.')
 
-def get_table_names(engine):
+def get_table_names(_engine):
     metadata = MetaData()
-    metadata.reflect(bind=engine)
+    metadata.reflect(bind=_engine)
     return metadata.tables.keys()
 
-def get_user_model_by_id(db, cls, user_id):
+def get_user_model_by_id(_db, cls, user_id):
     '''returns user data for provided model as a dot dict'''
-    with session(db) as _db:
+    with session(_db) as _db:
         results = _db.query(cls).filter(cls.user_id==user_id).all()
         data = []
         for item in results:
@@ -274,3 +279,8 @@ def add_column(engine, table, column_name, data_type):
         print(f'Failed to add column to {table}')
         st.warning(f'Failed to add column to {table}')
     connection.close()
+
+def lowdown(db):
+    users = get_all_users(db)
+    names = [f'{u.last_name}, {u.first_name}' for u in users]
+

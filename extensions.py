@@ -4,6 +4,7 @@ from sqlalchemy_utils import create_database, database_exists
 from config import DB_USERNAME, DB_PASSWORD, HOST, DB1, CONNECTOR
 import streamlit as st
 
+
 def create_session(engine):
     '''create the database: creates engine and returns session'''
     if not database_exists(engine.url):

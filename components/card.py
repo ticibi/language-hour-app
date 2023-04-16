@@ -31,15 +31,34 @@ def card(title, text):
         ,
         unsafe_allow_html=True
     )
+
+    jquery_code = """
+        <script>
+            $(document).ready(function() {
+                $('.message').click(function() {
+                    var message_id = $(this).data('id');
+                    $.ajax({
+                        type: 'POST',
+                        url: '/mark_as_read',
+                        data: {message_id: message_id},
+                        success: function() {
+                            $(this).addClass('read');
+                        }
+                    });
+                });
+            });
+        </script>
+    """
+
     # Html the card
     st.markdown(
         f"""
-        <div class="card">
+        <div onclick="mark_as_read()" class="card">
             <div class="card-body">{title}
             <div class="card-body">{text}</div>
         </div>
-        """
-        ,
+        {jquery_code}
+        """,
         unsafe_allow_html=True
     )
 
