@@ -315,8 +315,8 @@ def sidebar():
 def navbar():
     nav_bar = option_menu(
         'Language Training Management',
-        ['Login','Home', 'Submit Hour', 'Admin', 'TESTZONE'],
-        icons=['key', 'house', 'send', 'tools', 'activity'],
+        ['Login','Home', 'Submit Hour', 'Admin'], # 'TESTZONE'],
+        icons=['key', 'house', 'send', 'tools'], # 'activity'],
         default_index=0,
         orientation='horizontal',
         menu_icon='diamond',
