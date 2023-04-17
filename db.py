@@ -91,7 +91,6 @@ def commit_or_rollback(db, commit: bool):
             db.rollback()
             st.warning("Changes rolled back.")
 
-@st.cache_data
 def get_all_users(_db):
     '''returns all user models as dot dict'''
     with session(_db) as _db:
@@ -107,7 +106,6 @@ def get_score_by_id(db, id):
         result = db.query(Score).get(id)
         return dot_dict(result.to_dict()) if result else None
 
-@st.cache_data
 def get_user_by(_db, selector, value):
     '''returns user model as dot dict based on selector type: username, last_name, or id'''
     with session(_db) as _db:
@@ -156,7 +154,6 @@ def clear_db(engine) -> bool:
         print(f"Error dropping tables: {e}")
         return False
 
-@st.cache_data
 def get_databases(_db):
     with session(_db) as _db:
         results = _db.query(Database).all()
@@ -165,14 +162,12 @@ def get_databases(_db):
             data.append(dot_dict(item.to_dict()))
         return data
 
-@st.cache_data
 def get_table(_db, table):
     with session(_db) as _db:
         results = _db.query(table).all()
         df = pd.DataFrame([item.to_dict() for item in results])
         return df
 
-@st.cache_data
 def get_database_tables(_engine):
     # create a metadata object and reflect the database schema
     metadata = MetaData()
