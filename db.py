@@ -262,10 +262,11 @@ def rundown(db):
             info = dot_dict({'status': status,'user': user.last_name, 'hours': hours_done, 'hours_required': hours_required})
             data.append(info)
 
-        df = pd.DataFrame(data).set_index('user')
+        df = pd.DataFrame(data)
         if df.empty:
             st.info('There is no data to show.')
             return
+        df = df.set_index('user')
         st.dataframe(df, use_container_width=False)
 
 def add_column(engine, table, column_name, data_type):
