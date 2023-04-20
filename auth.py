@@ -7,18 +7,18 @@ def hash_password(password):
 
 def validate_password(password, hash_password):
     try:
-        bcrypt.checkpw(
+        if bcrypt.checkpw(
             password.encode('utf-8'),
             hash_password.encode('utf-8')
-        )
-        return True
+        ):
+            return True
     except ValueError as e:
         print('error:', e)
         return False
 
 def authenticate_user(user_dict, username, password, hashed_password):
     if not user_dict:
-         return
+         return False
     if user_dict.username == username:
         if validate_password(password, hashed_password):
             st.session_state.authenticated = True
