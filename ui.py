@@ -110,9 +110,11 @@ def home():
         pdf = create_pdf(data_fields)
         spacer(cols[2], 2)
         filename = f'623A_{formatted_date.upper()}_{user.last_name.upper()}.pdf'
-        cols[2].download_button(label='Download as 623A', data=pdf, file_name=filename, help='The selected month\'s language hours will be recorded on the 623A.')
+        if pdf is not None:
+            cols[2].download_button(label='Download as 623A', data=pdf, file_name=filename, help='The selected month\'s language hours will be recorded on the 623A.')
         spacer(cols[3], 2)
-        cols[3].download_button(label='Download as Excel', data=file, file_name='language_hours.xlsx', help='Microsoft Excel cannot open the excel file produced by this for some weird reason, but it can be opened with Google Sheets.')
+        if file is not None:
+            cols[3].download_button(label='Download as Excel', data=file, file_name='language_hours.xlsx', help='Microsoft Excel cannot open the excel file produced by this for some weird reason, but it can be opened with Google Sheets.')
 
     # Define a function to display the language hour history table
     def display_language_hours():
