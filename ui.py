@@ -100,7 +100,7 @@ def home():
         data_fields = {
             'Language': scores[0].langauge,
             'Member Name': f'{user.last_name.upper()} {user.first_name.upper()} {user.middle_initial.upper()}',
-            'Hours Studied': hours_this_month,
+            'Hours': f'{hours_this_month} hrs',
             'Date': formatted_date,
             'Listening': scores[0].listening,
             'Reading': scores[0].reading,

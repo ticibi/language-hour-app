@@ -150,7 +150,7 @@ def create_pdf(data_fields):
     '''data_fields = {
         'Language': 'Arabic',
         'Member Name': f'TEST NAME',
-        'Hours Studied': 'TESTVALUE',
+        'Hours': 'TESTVALUE',
         'Date': 'MAR-2023',
         'Listening': '0',
         'Reading': '0',
