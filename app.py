@@ -7,17 +7,16 @@ from extensions import db1_engine, create_session
 from models import DBConnect
 from forms import add_dbconnect_user
 
+
 st.set_page_config(
     page_title="Language Training Management",
     page_icon="🌐",
     layout="wide"
 )
+
 initialize_session_state_variables(SESSION_VARIABLES)
 
-
 if __name__ == '__main__':
-
-    
     # Connect to the 'master' database to get the connection information for the appropriate database
     db1 = create_session(db1_engine)
     db_name = get_database_name(db1_engine)

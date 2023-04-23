@@ -159,4 +159,3 @@ def create_entity_form(db, cls, exclude=['id']):
 #            st.success(f'Added {cls.__name__}!')
     pass
 
-

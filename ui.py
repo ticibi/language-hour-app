@@ -20,6 +20,7 @@ from load import load_user_models
 import pandas as pd
 import datetime
 
+
 def admin_access_warning(cols=st.columns):
     if access_warning(cols=cols):
         if not st.session_state.current_user.is_admin:
@@ -279,30 +280,54 @@ def sidebar():
         return
     
     db = st.session_state.session
-
     if not access_warning():
         return
 
     with st.sidebar:
         st.markdown(f'Welcome {st.session_state.current_user.first_name} 👋')
         st.subheader('Message Center')
+
         # Display message center
         with st.expander('Compose Message 📝'):
-            compose_message(db, st.session_state.current_user.id)   
+            compose_message(db, st.session_state.current_user.id)
+
+        to_messages = []
+        from_messages =  []
+
+        if st.session_state.current_user_data.Message:
+            for message in st.session_state.current_user_data.Message:
+                if message.sender_id == st.session_state.current_user.id:
+                    to_messages.append(message)
+                elif message.recipient_id == st.session_state.current_user.id:
+                    from_messages.append(message)
 
         with st.expander('My Messages 📬', expanded=True):
-            if st.session_state.current_user_data.Message:
-                for message in st.session_state.current_user_data.Message:
+            if from_messages:
+                st.write(f':blue[You have recieved {len(to_messages)} messages.]')
+                for message in from_messages:
+                    timestamp = message.timestamp.astimezone(pytz.timezone('US/Eastern')).strftime('%m-%d-%Y')
                     sender = get_user_by(db, 'id', message.sender_id)
-                    if sender:
-                        sender = dot_dict(sender)
-                        timestamp = message.timestamp.astimezone(pytz.timezone('US/Eastern')).strftime('%m-%d-%Y')
+                    if sender is not None:
                         card(
                             title=f'from: {sender.username} on {timestamp}',
                             text=message.content,
                         )
             else:
-                st.write('You have no messages.')
+                st.write('You have not received any messages.')
+
+        with st.expander('Sent Messages 📩'):
+            if to_messages:
+                st.write(f':blue[You have sent {len(to_messages)} messages.]')
+                for message in to_messages:
+                    timestamp = message.timestamp.astimezone(pytz.timezone('US/Eastern')).strftime('%m-%d-%Y')
+                    recipient = get_user_by(db, 'id', message.recipient_id)
+                    if recipient is not None:
+                        card(
+                            title=f'to: {recipient.username} on {timestamp}',
+                            text=message.content,
+                        )
+            else:
+                st.write('You have not sent any messages.')
 
     # Display session state variables
     with st.sidebar.expander('Session State', expanded=True):

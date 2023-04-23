@@ -11,18 +11,6 @@ import calendar
 from datetime import datetime
 
 
-def spacer(cols, len=1):
-    for i in range(len):
-        cols.write(' ')
-    return
-
-def divider():
-    st.markdown('''---''')
-
-def header(title):
-    st.markdown(f'<u style="font-size:1rem; color:dodgerblue;">**{title}**</u>', unsafe_allow_html=True)
-
-
 class dot_dict(dict):
     def __getattr__(self, name):
         try:
@@ -54,6 +42,17 @@ class dot_dict(dict):
     
     def to_dict(self):
         return {k: v for k, v in self.items() if k != "_sa_instance_state"}
+
+def spacer(cols, len=1):
+    for i in range(len):
+        cols.write(' ')
+    return
+
+def divider():
+    st.markdown('''---''')
+
+def header(title):
+    st.markdown(f'<u style="font-size:1rem; color:dodgerblue;">**{title}**</u>', unsafe_allow_html=True)
 
 def language_hour_history_to_string(history):
     output_string = ''
