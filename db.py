@@ -9,8 +9,8 @@ from config import HOST, DB_USERNAME, DB_PASSWORD, CONNECTOR
 from models import Database
 from utils import calculate_required_hours, spacer, dot_dict, calculate_total_hours, filter_monthly_hours
 import pandas as pd
-from datetime import date
 import calendar
+import datetime
 
 
 @contextmanager
@@ -230,8 +230,8 @@ def get_user_language_hours(db, user_id):
         return data
 
 def rundown(db):
-    current_month = date.today().month
-    current_year = date.today().year
+    current_month = datetime.date.today().month
+    current_year = datetime.date.today().year
 
     cols = st.columns([1, 1, 1])
     selected_month = cols[0].selectbox('Month', key='rundown_month', index=current_month, options=calendar.month_name)
@@ -277,6 +277,24 @@ def add_column(engine, table, column_name, data_type):
     connection.close()
 
 def lowdown(db):
+    def highlight_row(row):
+        today = datetime.date.today()
+        delta = datetime.timedelta(days=60)
+        due_date = row[3] + datetime.timedelta(days=365)
+        prior = due_date - delta
+        diff = due_date - today
+        if today >= prior:
+            return ['background-color: rgba(255, 227, 18, 0.2)'] * len(row)
+        return [''] * len(row) 
+    data = []
     users = get_all_users(db)
-    names = [f'{u.last_name}, {u.first_name}' for u in users]
-
+    for user in users:
+        name = f'{user.last_name}, {user.first_name}'
+        scores = get_user_model_by_id(db, Score, user.id)
+        if not scores:
+            continue
+        if scores[0].CL is True:
+            data.append([name, scores[0].dicode, f'{scores[0].listening}/{scores[0].reading}', scores[0].date])
+    df = pd.DataFrame(data)
+    df = df.style.apply(highlight_row, axis=1)
+    st.dataframe(df, use_container_width=True)

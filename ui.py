@@ -7,7 +7,7 @@ from streamlit_option_menu import option_menu
 
 from auth import authenticate_user
 from db import get_all_users, lowdown, test_db_connection, add_column, get_table, rundown, get_table_names, get_user_by, get_databases, connect_user_to_database, get_database_name, commit_or_rollback
-from utils import header, download_database, divider, spacer, dot_dict, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
+from utils import header, download_database, divider, spacer, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
 from comps import submit_entry, download_file, download_to_excel, delete_row, display_entities, delete_entities
 from models import DBConnect, LanguageHour, User, File, Score, Course, Message, Log
 from config import MODALITIES, ADMIN_PASSWORD, ADMIN_USERNAME, CONTACT_MSG, DATATYPES
@@ -130,6 +130,9 @@ def home():
         if st.session_state.current_user.is_admin:
             with st.expander('Monthly Rundown (admin)'):
                 rundown(db)
+
+            with st.expander('Users Quicklook'):
+                lowdown(db)
 
             with st.expander('Search Users (admin)'):
                 def highlight_row(row):
@@ -274,7 +277,7 @@ def admin():
  
         with st.expander('Logs'):
             display_entities(db, Log)
- 
+
 def sidebar():
     if not st.session_state.session:
         return

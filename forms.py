@@ -2,7 +2,7 @@ import streamlit as st
 from sqlalchemy import exists
 from db import get_score_by_id, check_username_exists, get_table, get_database_name, get_all_users, upload_bulk_excel, get_databases, session, get_user_by
 from models import DBConnect, User, Course, File, Score, Log, Message, Database
-from utils import spacer, divider, read_excel
+from utils import spacer, read_excel
 from datetime import datetime
 import pytz
 from extensions import db1
