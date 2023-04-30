@@ -91,7 +91,7 @@ def home():
         user = st.session_state.current_user
         record = language_hour_history_to_string(month_history_filtered)
         if not record:
-            st.info('You have not submitted any hours during the selected month.')
+            st.info('No language hours were submitted during the selected month and year.')
 
         formatted_date = f'{selected_month}{selected_year}'
         if not scores:
@@ -304,7 +304,7 @@ def sidebar():
                 elif message.recipient_id == st.session_state.current_user.id:
                     from_messages.append(message)
 
-        with st.expander('My Messages 📬', expanded=True):
+        with st.expander('Inbox 📬', expanded=True):
             if from_messages:
                 st.write(f':blue[You have recieved {len(to_messages)} messages.]')
                 for message in from_messages:
@@ -333,7 +333,7 @@ def sidebar():
                 st.write('You have not sent any messages.')
 
     # Display session state variables
-    with st.sidebar.expander('Session State', expanded=True):
+    with st.sidebar.expander('Session State'):
         if st.session_state.current_user:
             if st.session_state.current_user.is_dev:
                 st.write('(Dev)')
@@ -407,7 +407,7 @@ def submit_hour():
                         submit_entry(db, entry)
                         st.balloons()
                         st.success(f'{hours} language hours submitted!')
-                        add_log(db, st.session_state.current_user.id, f'user_id:{st.session_state.current_user.id} logged in.')
+                        add_log(db, st.session_state.current_user.id, f'{st.session_state.current_user.username} submitted {hours} hrs.')
                     else:
                         st.warning('You must fill out every field.')
 
@@ -455,7 +455,7 @@ def login():
                                 st.session_state.current_user_data = user_data
                             container.empty()
                             st.success('Logged in!')
-                            #add_log(_db, st.session_state.current_user.id, f'{username} logged in.')
+                            add_log(db, st.session_state.current_user.id, f'{st.session_state.current_user.username} logged in.')
                     else:
                         st.warning('Invalid username or password. Return to Login page.')
                         return

@@ -13,6 +13,12 @@ def card(title, text):
             border-radius: 0.25rem;
             border: 1px solid rgba(0, 0, 0, 0.125);
         }
+        .card-title {
+            color: #4B71FF;
+        }
+        .card-text {
+            color:whitesmoke;
+        }
         .card:hover {
             background-color: rgb(25, 30, 35);
             cursor: pointer;
@@ -54,8 +60,8 @@ def card(title, text):
     st.markdown(
         f"""
         <div onclick="mark_as_read()" class="card">
-            <div class="card-body">{title}
-            <div class="card-body">{text}</div>
+            <div class="card-body card-title">{title}
+            <div class="card-body card-text">{text}</div>
         </div>
         """,
         unsafe_allow_html=True

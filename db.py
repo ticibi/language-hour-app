@@ -280,7 +280,12 @@ def lowdown(db):
     def highlight_row(row):
         today = datetime.date.today()
         delta = datetime.timedelta(days=60)
-        due_date = row[3] + datetime.timedelta(days=365)
+        days = 0
+        if row[2] == '3/3':
+            days = 365 * 2
+        else:
+            days =  365
+        due_date = row[3] + datetime.timedelta(days=days)
         prior = due_date - delta
         diff = due_date - today
         if today >= prior:
