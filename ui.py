@@ -10,7 +10,7 @@ from db import get_all_users, lowdown, test_db_connection, add_column, get_table
 from utils import header, download_database, divider, spacer, calculate_required_hours, filter_monthly_hours, calculate_total_hours, dot_dict, create_pdf, language_hour_history_to_string
 from comps import submit_entry, download_file, download_to_excel, delete_row, display_entities, delete_entities
 from models import DBConnect, LanguageHour, User, File, Score, Course, Message, Log
-from config import MODALITIES, ADMIN_PASSWORD, ADMIN_USERNAME, CONTACT_MSG, DATATYPES
+from config import MODALITIES, ADMIN_PASSWORD, ADMIN_USERNAME, CONTACT_MSG, DATATYPES, SILLYGOOSE
 from load import load_user_models
 from forms import edit_user, edit_course, edit_score, bar_graph, add_user, add_score, add_course, add_file, add_log, compose_message, upload_language_hours, add_database, add_dbconnect_user
 from components.card import card
@@ -456,6 +456,8 @@ def login():
                             container.empty()
                             st.success('Logged in!')
                             add_log(db, st.session_state.current_user.id, f'{st.session_state.current_user.username} logged in.')
+                            if st.session_state.current_user.username == SILLYGOOSE:
+                                st.session_state.rain = True
                     else:
                         st.warning('Invalid username or password. Return to Login page.')
                         return

@@ -8,6 +8,7 @@ CONNECTOR = st.secrets['CONNECTOR']
 HOST = st.secrets['HOST']
 PORT = st.secrets['PORT']
 DB1 = st.secrets['DB_1']
+SILLYGOOSE = st.secrets['SILLYGOOSE']
 
 SESSION_VARIABLES = [
     'db', # sql database session
