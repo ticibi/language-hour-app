@@ -57,7 +57,6 @@ def card(title, text):
             <div class="card-body">{title}
             <div class="card-body">{text}</div>
         </div>
-        {jquery_code}
         """,
         unsafe_allow_html=True
     )

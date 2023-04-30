@@ -285,7 +285,8 @@ def lowdown(db):
         diff = due_date - today
         if today >= prior:
             return ['background-color: rgba(255, 227, 18, 0.2)'] * len(row)
-        return [''] * len(row) 
+        return [''] * len(row)
+
     data = []
     users = get_all_users(db)
     for user in users:
@@ -295,6 +296,8 @@ def lowdown(db):
             continue
         if scores[0].CL is True:
             data.append([name, scores[0].dicode, f'{scores[0].listening}/{scores[0].reading}', scores[0].date])
-    df = pd.DataFrame(data)
+    
+    df = pd.DataFrame(data, columns=['Name', 'Dicode', 'Score', 'DLPT Date'])
     df = df.style.apply(highlight_row, axis=1)
     st.dataframe(df, use_container_width=True)
+
