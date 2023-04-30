@@ -17,6 +17,7 @@ SESSION_VARIABLES = [
     'logged_in', # current user login status
     'current_user', # current authenticated user
     'debug', # debug mode state
+    'rain',
 ]
 DICODES = ['AP', 'AU', 'AE', 'DG', 'AD', 'AV', 'PV', 'PG', 'PF',]
 MODALITIES = [
