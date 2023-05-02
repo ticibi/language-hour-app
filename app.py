@@ -23,8 +23,8 @@ if __name__ == '__main__':
     db_name = get_database_name(db1_engine)
     #st.sidebar.write(f'connected to :blue[{db_name}]')  
 
-    if st.session_state.rain:
-        rain('🦢', font_size=45, falling_speed=7)
+    #if st.session_state.rain:
+    #    rain('🦢', font_size=45, falling_speed=7)
 
     # Prompt to add a user if there are none in the database
     if db1.query(DBConnect).count() < 1:
